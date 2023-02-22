@@ -44,6 +44,16 @@ doc/warnings.log
 *.dSYM
 .DS_Store
 
+# Cascadia app
+cascadia/verification/forward_seq
+cascadia/verification/forward_par
+cascadia/verification/mesh.*
+cascadia/verification/*.mesh
+cascadia/verification/*.gf
+cascadia/verification/Paraview
+cascadia/verification/ForwardSeq*
+cascadia/verification/ForwardPar*
+
 # Example and miniapp binaries and outputs
 
 examples/ex[0-9]
