@@ -1,0 +1,174 @@
+# Copyright (c) 2010-2022, Lawrence Livermore National Security, LLC. Produced
+# at the Lawrence Livermore National Laboratory. All Rights reserved. See files
+# LICENSE and NOTICE for details. LLNL-CODE-806117.
+#
+# This file is part of the MFEM library. For more information and source code
+# availability visit https://mfem.org.
+#
+# MFEM is free software; you can redistribute it and/or modify it under the
+# terms of the BSD-3 license. We welcome feedback and contributions, see file
+# CONTRIBUTING.md for details.
+
+# See the file INSTALL for description of the configuration options.
+
+# Default options. To replace these, copy this file to user.cmake and modify it.
+
+if (NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE "Release" CACHE STRING
+      "Build type: Debug, Release, RelWithDebInfo, or MinSizeRel." FORCE)
+endif()
+
+# MFEM options. Set to mimic the default "defaults.mk" file.
+option(MFEM_USE_MPI "Enable MPI parallel build" ON)
+option(MFEM_USE_METIS "Enable METIS usage" ${MFEM_USE_MPI})
+option(MFEM_USE_METIS_5 "Enable METIS 5" ON)
+option(MFEM_USE_EXCEPTIONS "Enable the use of exceptions" OFF)
+option(MFEM_USE_ZLIB "Enable zlib for compressed data streams." OFF)
+option(MFEM_USE_LIBUNWIND "Enable backtrace for errors." OFF)
+option(MFEM_USE_LAPACK "Enable LAPACK usage" ON)
+option(MFEM_THREAD_SAFE "Enable thread safety" OFF)
+option(MFEM_USE_OPENMP "Enable the OpenMP backend" OFF)
+option(MFEM_USE_LEGACY_OPENMP "Enable legacy OpenMP usage" OFF)
+option(MFEM_USE_MEMALLOC "Enable the internal MEMALLOC option." ON)
+option(MFEM_USE_SUNDIALS "Enable SUNDIALS usage" OFF)
+option(MFEM_USE_MESQUITE "Enable MESQUITE usage" OFF)
+option(MFEM_USE_SUITESPARSE "Enable SuiteSparse usage" OFF)
+option(MFEM_USE_SUPERLU "Enable SuperLU_DIST usage" ON)
+option(MFEM_USE_SUPERLU5 "Use the old SuperLU_DIST 5.1 version" OFF)
+option(MFEM_USE_MUMPS "Enable MUMPS usage" ON)
+option(MFEM_USE_STRUMPACK "Enable STRUMPACK usage" OFF)
+option(MFEM_USE_GINKGO "Enable Ginkgo usage" OFF)
+option(MFEM_USE_AMGX "Enable AmgX usage" OFF)
+option(MFEM_USE_GNUTLS "Enable GNUTLS usage" OFF)
+option(MFEM_USE_GSLIB "Enable GSLIB usage" OFF)
+option(MFEM_USE_NETCDF "Enable NETCDF usage" OFF)
+option(MFEM_USE_PETSC "Enable PETSc support." ON)
+option(MFEM_USE_SLEPC "Enable SLEPc support." OFF)
+option(MFEM_USE_MPFR "Enable MPFR usage." OFF)
+option(MFEM_USE_SIDRE "Enable Axom/Sidre usage" OFF)
+option(MFEM_USE_FMS "Enable FMS usage" OFF)
+option(MFEM_USE_CONDUIT "Enable Conduit usage" OFF)
+option(MFEM_USE_PUMI "Enable PUMI" OFF)
+option(MFEM_USE_HIOP "Enable HiOp" OFF)
+option(MFEM_USE_CUDA "Enable CUDA" OFF)
+option(MFEM_USE_HIP "Enable HIP" OFF)
+option(MFEM_USE_OCCA "Enable OCCA" OFF)
+option(MFEM_USE_RAJA "Enable RAJA" OFF)
+option(MFEM_USE_CEED "Enable CEED" OFF)
+option(MFEM_USE_UMPIRE "Enable Umpire" OFF)
+option(MFEM_USE_SIMD "Enable use of SIMD intrinsics" OFF)
+option(MFEM_USE_ADIOS2 "Enable ADIOS2" OFF)
+option(MFEM_USE_CALIPER "Enable Caliper support" OFF)
+option(MFEM_USE_ALGOIM "Enable Algoim support" OFF)
+option(MFEM_USE_MKL_CPARDISO "Enable MKL CPardiso" OFF)
+option(MFEM_USE_ADFORWARD "Enable forward mode for AD" OFF)
+option(MFEM_USE_CODIPACK "Enable automatic differentiation (AD) using CoDiPack" OFF)
+option(MFEM_USE_BENCHMARK "Enable Google Benchmark" OFF)
+option(MFEM_USE_PARELAG "Enable ParELAG" OFF)
+option(MFEM_USE_ENZYME "Enable Enzyme" OFF)
+
+# Optional overrides for autodetected MPIEXEC and MPIEXEC_NUMPROC_FLAG
+# set(MFEM_MPIEXEC "mpirun" CACHE STRING "Command for running MPI tests")
+# set(MFEM_MPIEXEC_NP "-np" CACHE STRING
+#     "Flag for setting the number of MPI tasks")
+
+set(MFEM_MPI_NP 4 CACHE STRING "Number of processes used for MPI tests")
+
+# Allow a user to disable testing, examples, and/or miniapps at CONFIGURE TIME
+# if they don't want/need them (e.g. if MFEM is "just a dependency" and all they
+# need is the library, building all that stuff adds unnecessary overhead). Note
+# that the examples or miniapps can always be built using the targets 'examples'
+# or 'miniapps', respectively.
+option(MFEM_ENABLE_TESTING "Enable the ctest framework for testing" ON)
+option(MFEM_ENABLE_EXAMPLES "Build all of the examples" OFF)
+option(MFEM_ENABLE_MINIAPPS "Build all of the miniapps" OFF)
+option(MFEM_ENABLE_GOOGLE_BENCHMARKS "Build all of the Google benchmarks" OFF)
+
+# Setting CXX/MPICXX on the command line or in user.cmake will overwrite the
+# autodetected C++ compiler.
+# set(CXX g++)
+# set(MPICXX mpicxx)
+
+# Set the target CUDA architecture
+set(CUDA_ARCH "sm_60" CACHE STRING "Target CUDA architecture.")
+
+# Set the target HIP architecture
+set(HIP_ARCH "gfx900" CACHE STRING "Target HIP architecture.")
+
+set(MFEM_DIR ${CMAKE_CURRENT_SOURCE_DIR})
+
+set(PETSC_DIR "/Users/stefan/CCGO/LIBS/MFEM/petsc" CACHE PATH
+    "Path to the PETSc main directory.")
+set(PETSC_ARCH "arch-osx-real" CACHE STRING "PETSc build architecture.")
+
+# The *_DIR paths below will be the first place searched for the corresponding
+# headers and library. If these fail, then standard cmake search is performed.
+# Note: if the variables are already in the cache, they are not overwritten.
+
+set(HYPRE_DIR "/Users/stefan/opt/hypre-2.25.0/src/hypre" CACHE PATH
+    "Path to the hypre library.")
+# If hypre was compiled to depend on BLAS and LAPACK:
+# set(HYPRE_REQUIRED_PACKAGES "BLAS" "LAPACK" CACHE STRING
+#     "Packages that HYPRE depends on.")
+
+set(METIS_DIR "/Users/stefan/opt/parmetis-4.0.3" CACHE PATH "Path to the METIS library.")
+set(METIS_INCLUDE_DIRS "/Users/stefan/opt/parmetis-4.0.3/metis/include" CACHE PATH "Path to the METIS include dir.")
+set(METIS_LIBRARIES "/Users/stefan/opt/parmetis-4.0.3/build/Darwin-x86_64/libmetis/libmetis.a" CACHE PATH "Path to libmetis.")
+
+set(LIBUNWIND_DIR "" CACHE PATH "Path to Libunwind.")
+
+set(ParMETIS_DIR "/Users/stefan/opt/parmetis-4.0.3" CACHE PATH "Path to the ParMETIS library.")
+set(ParMETIS_INCLUDE_DIRS "/Users/stefan/opt/parmetis-4.0.3/include" CACHE PATH "Path to the parMETIS include dir.")
+set(ParMETIS_LIBRARIES "/Users/stefan/opt/parmetis-4.0.3/build/Darwin-x86_64/libparmetis/libparmetis.a" CACHE PATH "Path to libparmetis.")
+set(ParMETIS_REQUIRED_PACKAGES "METIS" CACHE STRING
+    "Additional packages required by ParMETIS.")
+
+set(SuperLUDist_DIR "${PETSC_DIR}/${PETSC_ARCH}" CACHE PATH
+    "Path to the SuperLU_DIST library.")
+# SuperLU_DIST may also depend on "OpenMP", depending on how it was compiled.
+set(SuperLUDist_REQUIRED_PACKAGES "MPI" "BLAS" "ParMETIS" CACHE STRING
+    "Additional packages required by SuperLU_DIST.")
+
+set(MUMPS_DIR "${PETSC_DIR}/${PETSC_ARCH}" CACHE PATH
+    "Path to the MUMPS library.")
+# Packages required by MUMPS, depending on how it was compiled.
+set(MUMPS_REQUIRED_PACKAGES "MPI" "BLAS" "METIS" "ScaLAPACK" CACHE STRING
+    "Additional packages required by MUMPS.")
+# If the MPI package does not find all required Fortran libraries:
+# set(MUMPS_REQUIRED_LIBRARIES "gfortran" "mpi_mpifh" CACHE STRING
+#     "Additional libraries required by MUMPS.")
+
+# The Scotch library, required by STRUMPACK <= v2.1.0, optional in STRUMPACK >=
+# v2.2.0.
+set(Scotch_DIR "${MFEM_DIR}/../scotch_6.0.4" CACHE PATH
+    "Path to the Scotch and PT-Scotch libraries.")
+set(Scotch_REQUIRED_PACKAGES "Threads" CACHE STRING
+    "Additional packages required by Scotch.")
+# Tell the "Threads" package/module to prefer pthreads.
+set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
+set(Threads_LIB_VARS CMAKE_THREAD_LIBS_INIT)
+
+# The ScaLAPACK library, required by STRUMPACK
+set(ScaLAPACK_DIR "/usr/local"
+    CACHE PATH "Path to the configuration file scalapack-config.cmake")
+set(ScaLAPACK_TARGET_NAMES scalapack)
+# set(ScaLAPACK_TARGET_FORCE)
+# set(ScaLAPACK_IMPORT_CONFIG DEBUG)
+
+set(NETCDF_DIR "" CACHE PATH "Path to the NetCDF library.")
+set(NetCDF_REQUIRED_PACKAGES "HDF5/C/HL" CACHE STRING
+    "Additional packages required by NetCDF.")
+
+set(BLAS_INCLUDE_DIRS "" CACHE STRING "Path to BLAS headers.")
+set(BLAS_LIBRARIES "" CACHE STRING "The BLAS library.")
+set(LAPACK_INCLUDE_DIRS "" CACHE STRING "Path to LAPACK headers.")
+set(LAPACK_LIBRARIES "" CACHE STRING "The LAPACK library.")
+
+set(CODIPACK_INCLUDE_DIRS "${MFEM_DIR}/../CoDiPack/include" CACHE STRING
+    "Path to CoDiPack headers.")
+set(CODIPACK_LIBRARIES "")
+
+# Some useful variables:
+set(CMAKE_SKIP_PREPROCESSED_SOURCE_RULES ON) # Skip *.i rules
+set(CMAKE_SKIP_ASSEMBLY_SOURCE_RULES  ON)    # Skip *.s rules
+# set(CMAKE_VERBOSE_MAKEFILE ON CACHE BOOL "Verbose makefiles.")
