@@ -110,7 +110,11 @@ void WaveParamToObs::GetObs(Vector** &obs) const
    ode_solver.Init(*wave_fwd);
    
    // 6. Allocate vectors for observations
-   if (!obs) { obs = new Vector*[obs_steps]; }
+   if (!obs)
+   {
+      obs = new Vector*[obs_steps];
+      for (int k = 0; k < obs_steps; k++) { obs[k] = NULL; }
+   }
    for (int k = 0; k < obs_steps; k++)
    {
       if (obs[k])
@@ -190,7 +194,7 @@ void WaveParamToObs::GetObs(Vector** &obs) const
    
       int order_quad = max(2, 2*wave_fwd->PressureFESpace()->GetMaxElementOrder());
       const IntegrationRule *irs[Geometry::NumGeom];
-      for (int i=0; i < Geometry::NumGeom; ++i)
+      for (int i = 0; i < Geometry::NumGeom; i++)
       {
          irs[i] = &(IntRules.Get(i, order_quad));
       }
@@ -305,7 +309,11 @@ void WaveParamToObs::GetAdj(GridFunction** &adj) const
    ode_solver.Init(*wave_adj);
    
    // 6. Allocate GridFunctions for output
-   if (!adj) { adj = new GridFunction*[param_steps]; }
+   if (!adj)
+   {
+      adj = new GridFunction*[param_steps];
+      for (int k = 0; k < param_steps; k++) { adj[k] = NULL; }
+   }
    for (int k = 0; k < param_steps; k++)
    {
       if (adj[k]) { delete adj[k]; }
