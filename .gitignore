@@ -52,14 +52,14 @@ cascadia/cascadia_seq/cascadia_seq
 cascadia/cascadia_seq/mesh.*
 cascadia/cascadia_seq/*.mesh
 cascadia/cascadia_seq/*.gf
-cascadia/cascadia_seq/Paraview
+cascadia/cascadia_seq/ParaView
 cascadia/cascadia_seq/fwd
 cascadia/cascadia_seq/adj
 cascadia/cascadia_par/cascadia_par
 cascadia/cascadia_par/mesh.*
 cascadia/cascadia_par/*.mesh
 cascadia/cascadia_par/*.gf
-cascadia/cascadia_par/Paraview
+cascadia/cascadia_par/ParaView
 cascadia/cascadia_par/fwd
 cascadia/cascadia_par/adj
 cascadia/verification
