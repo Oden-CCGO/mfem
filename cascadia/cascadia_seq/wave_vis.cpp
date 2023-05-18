@@ -8,7 +8,7 @@ using namespace std;
 
 WaveVis::WaveVis(Mesh *mesh_, bool visualization_, int vis_steps_, int vis_order_)
    : visualization(visualization_), vis_steps(vis_steps_), vis_order(vis_order_),
-     mesh(mesh_), paraview_dc(NULL)
+     mesh(mesh_), paraview_dc(nullptr)
 {
    if (visualization)
    {

@@ -207,7 +207,7 @@ int main(int argc, char *argv[])
    mesh->PrintCharacteristics();
    
    // 5. Define the ODE solver used for time integration.
-   ODESolver *ode_solver = NULL;
+   ODESolver *ode_solver = nullptr;
    switch (ode_solver_type)
    {
       // Explicit methods
@@ -413,7 +413,7 @@ int main(int argc, char *argv[])
    
    const int height = DG_space->GetTrueVSize() + CG_space->GetTrueVSize();
    
-   WaveOperator *wave_fwd = NULL;
+   WaveOperator *wave_fwd = nullptr;
    if (fwd == 1)
    {
       cout << endl << "Creating WaveOperator (forward)..." << endl;
@@ -423,7 +423,7 @@ int main(int argc, char *argv[])
          param_rate, param_steps, obs_rate, obs_steps, false);
    }
    
-   WaveOperator *wave_adj = NULL;
+   WaveOperator *wave_adj = nullptr;
    if (adj == 1)
    {
       cout << endl << "Creating WaveOperator (adjoint)..." << endl;
@@ -481,7 +481,7 @@ int main(int argc, char *argv[])
    
    // TEST: Create loads for all time-steps using GridFunctionCoefficients
    //       -> only used for unknown solutions
-   GridFunction **params = NULL;
+   GridFunction **params = nullptr;
    bool test_store_load = true;
    if (test_store_load && WaveSolution::IsUnknown() && fwd)
    {
@@ -495,7 +495,7 @@ int main(int argc, char *argv[])
    // END TEST
    
    // 11a. Specify parameter (load) and call p2o map
-   Vector **obs = NULL;
+   Vector **obs = nullptr;
    if (fwd == 1)
    {
       if (WaveSolution::IsKnown())
@@ -525,8 +525,8 @@ int main(int argc, char *argv[])
       }
    }
    
-   Vector **data = NULL;
-   GridFunction **adj_gf = NULL;
+   Vector **data = nullptr;
+   GridFunction **adj_gf = nullptr;
    if (adj == 1) {
       // 12a. Specify data (adjoint load) and call transpose p2o map
       if (fwd)
@@ -558,24 +558,24 @@ int main(int argc, char *argv[])
    cout << endl << "cascadia_seq: freeing memory" << endl;
    if (params)
    {
-      for (int k = 0; k < param_steps; k++) { delete params[k]; params[k] = NULL; }
-      delete params; params = NULL;
+      for (int k = 0; k < param_steps; k++) { delete params[k]; params[k] = nullptr; }
+      delete params; params = nullptr;
    }
    if (obs)
    {
-      for (int k = 0; k < obs_steps; k++) { delete obs[k]; obs[k] = NULL; }
-      if (data==obs) { data = NULL; }
-      delete obs; obs = NULL;
+      for (int k = 0; k < obs_steps; k++) { delete obs[k]; obs[k] = nullptr; }
+      if (data==obs) { data = nullptr; }
+      delete obs; obs = nullptr;
    }
    if (data)
    {
-      for (int k = 0; k < obs_steps; k++) { delete data[k]; data[k] = NULL; }
-      delete data; data = NULL;
+      for (int k = 0; k < obs_steps; k++) { delete data[k]; data[k] = nullptr; }
+      delete data; data = nullptr;
    }
    if (adj_gf)
    {
-      for (int k = 0; k < param_steps; k++) { delete adj_gf[k]; adj_gf[k] = NULL; }
-      delete adj_gf; adj_gf = NULL;
+      for (int k = 0; k < param_steps; k++) { delete adj_gf[k]; adj_gf[k] = nullptr; }
+      delete adj_gf; adj_gf = nullptr;
    }
    
    delete wave_fwd;

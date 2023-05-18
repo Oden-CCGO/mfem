@@ -9,9 +9,9 @@ using namespace std;
 WaveTransferMap::WaveTransferMap(FiniteElementSpace &fes_state_,
                                  FiniteElementSpace &fes_param_)
    :  fes_state(fes_state_), fes_param(fes_param_),
-      state_mesh(NULL), param_mesh(NULL),
-      fec_aux(NULL), fes_aux(NULL),
-      state_to_aux(NULL), aux_to_state(NULL)
+      state_mesh(nullptr), param_mesh(nullptr),
+      fec_aux(nullptr), fes_aux(nullptr),
+      state_to_aux(nullptr), aux_to_state(nullptr)
 {
    MFEM_VERIFY(!fes_state.IsVariableOrder(),
                "WaveTransferMap requires uniform order.");

@@ -30,7 +30,7 @@ public:
    WaveVis(Mesh *mesh_, bool visualization_, int vis_steps_, int vis_order_);
    
    /// Create a new DataCollection (deleting previous one if any)
-   void NewCollection(std::string &collection_name_, Mesh *mesh_=NULL);
+   void NewCollection(std::string &collection_name_, Mesh *mesh_=nullptr);
    
    bool IsVis() const { return visualization; }
    int VisSteps() const { return vis_steps; }

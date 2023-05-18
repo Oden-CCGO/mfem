@@ -15,7 +15,7 @@ WaveParamToObs::WaveParamToObs(WaveOperator *wave_fwd_, WaveOperator *wave_adj_,
      wave_vis(wave_vis_),
      ode_solver(ode_solver_), n_steps(n_steps_), dt(dt_)
 {
-   WaveOperator *tmp = NULL;
+   WaveOperator *tmp = nullptr;
    if      (wave_fwd) { tmp = wave_fwd; }
    else if (wave_adj) { tmp = wave_adj; }
    
@@ -113,7 +113,7 @@ void WaveParamToObs::GetObs(Vector** &obs) const
    if (!obs)
    {
       obs = new Vector*[obs_steps];
-      for (int k = 0; k < obs_steps; k++) { obs[k] = NULL; }
+      for (int k = 0; k < obs_steps; k++) { obs[k] = nullptr; }
    }
    for (int k = 0; k < obs_steps; k++)
    {
@@ -227,7 +227,7 @@ void WaveParamToObs::GetObs(Vector** &obs) const
 
 void WaveParamToObs::Mult(GridFunction **param, Vector** &obs) const
 {
-   MFEM_VERIFY(wave_fwd != NULL, "No forward op available.");
+   MFEM_VERIFY(wave_fwd != nullptr, "No forward op available.");
 
    // Store parameters as GridFunctionCoefficients in wave operator
    wave_fwd->StoreLoad(param);
@@ -238,7 +238,7 @@ void WaveParamToObs::Mult(GridFunction **param, Vector** &obs) const
 
 void WaveParamToObs::Mult(function<double(const Vector &, double)> TDF, Vector** &obs) const
 {
-   MFEM_VERIFY(wave_fwd != NULL, "No forward op available.");
+   MFEM_VERIFY(wave_fwd != nullptr, "No forward op available.");
    
    // Assign parameter time-dependent function to wave operator
    wave_fwd->TDFunctionLoad(TDF);
@@ -312,7 +312,7 @@ void WaveParamToObs::GetAdj(GridFunction** &adj) const
    if (!adj)
    {
       adj = new GridFunction*[param_steps];
-      for (int k = 0; k < param_steps; k++) { adj[k] = NULL; }
+      for (int k = 0; k < param_steps; k++) { adj[k] = nullptr; }
    }
    for (int k = 0; k < param_steps; k++)
    {
@@ -383,7 +383,7 @@ void WaveParamToObs::GetAdj(GridFunction** &adj) const
 /// currently, the adjoint system is scaled s.t. u = c1*tau, p = c2*v
 void WaveParamToObs::MultTranspose(Vector **data, GridFunction** &adj) const
 {
-   MFEM_VERIFY(wave_adj != NULL, "No adjoint op available.");
+   MFEM_VERIFY(wave_adj != nullptr, "No adjoint op available.");
    
    // Store data as GridFunctionCoefficients in wave operator
    wave_adj->StoreAdjLoad(data);
@@ -501,7 +501,7 @@ void WaveParamToObs::AdjToFile(GridFunction **adj)
 
 GridFunction** WaveParamToObs::ParamToGF(function<double(const Vector &, double)> TDF) const
 {
-   MFEM_VERIFY(wave_fwd != NULL, "No forward operator has been defined.");
+   MFEM_VERIFY(wave_fwd != nullptr, "No forward operator has been defined.");
    
    GridFunction** params = new GridFunction*[n_steps];
    FunctionCoefficient coeff(TDF);

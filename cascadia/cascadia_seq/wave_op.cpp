@@ -19,18 +19,18 @@ WaveOperator::WaveOperator(FiniteElementSpace &fes_u_, FiniteElementSpace &fes_p
      ess_bdr(ess_bdr_), nat_bdr(nat_bdr_),
      surfac_bdr(surfac_bdr_), bottom_bdr(bottom_bdr_), absorb_bdr(absorb_bdr_),
      block_offsets(3),
-     M_u(NULL), M_p(NULL), BlockM(NULL), mVarf_u(NULL), mVarf_p(NULL),
-     K_u(NULL), K_p(NULL), K_pt(NULL), BlockK(NULL), kVarf_u(NULL), kVarf_p(NULL),
-     K_imp(NULL), kVarf_imp(NULL),
-     f_coeff(NULL), g_coeff(NULL), g_nat_coeff(NULL),
-     tdf_coeff(NULL), m_coeff(NULL), m_gf(NULL), p_gf(NULL), m_gf_coeff(NULL),
-     fform(NULL), gform(NULL), rhs(NULL),
-     BlockM_prec(NULL), invM_u(NULL), invM_p(NULL), T_oper(NULL),
+     M_u(nullptr), M_p(nullptr), BlockM(nullptr), mVarf_u(nullptr), mVarf_p(nullptr),
+     K_u(nullptr), K_p(nullptr), K_pt(nullptr), BlockK(nullptr), kVarf_u(nullptr), kVarf_p(nullptr),
+     K_imp(nullptr), kVarf_imp(nullptr),
+     f_coeff(nullptr), g_coeff(nullptr), g_nat_coeff(nullptr),
+     tdf_coeff(nullptr), m_coeff(nullptr), m_gf(nullptr), p_gf(nullptr), m_gf_coeff(nullptr),
+     fform(nullptr), gform(nullptr), rhs(nullptr),
+     BlockM_prec(nullptr), invM_u(nullptr), invM_p(nullptr), T_oper(nullptr),
      z(height_), c1(c1_), c2(c2_), c3(c3_),
      param_rate(param_rate_), param_steps(param_steps_),
      obs_rate(obs_rate_), obs_steps(obs_steps_),
      adj(adj_),
-     parameters(NULL), data(NULL)
+     parameters(nullptr), data(nullptr)
 {
    StopWatch chrono;
    chrono.Start();
