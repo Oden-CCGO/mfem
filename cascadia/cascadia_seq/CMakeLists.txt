@@ -9,12 +9,8 @@
 # terms of the BSD-3 license. We welcome feedback and contributions, see file
 # CONTRIBUTING.md for details.
 
-# Include the source directory where mfem.hpp and mfem-performance.hpp are.
-include_directories(BEFORE ${PROJECT_BINARY_DIR})
+add_mfem_miniapp(cascadia_seq
+  MAIN cascadia_seq.cpp
+  EXTRA_HEADERS wave_map.hpp wave_obs.hpp wave_op.hpp wave_p2o.hpp wave_sol.hpp wave_vis.hpp cascadia.hpp sum_operator.hpp}
+  LIBRARIES mfem)
 
-set(CASCADIA_COMMON_SOURCES "")
-set(CASCADIA_COMMON_HEADERS "")
-
-add_subdirectory(cascadia_seq)
-# add_subdirectory(cascadia_par)
-add_subdirectory(common)
