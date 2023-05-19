@@ -1,6 +1,13 @@
 
 #include "cascadia.hpp"
 
+#ifndef _WIN32
+#include <sys/stat.h>  // mkdir
+#else
+#include <direct.h>    // _mkdir
+#define mkdir(dir, mode) _mkdir(dir)
+#endif
+
 namespace mfem
 {
 
@@ -33,8 +40,10 @@ WaveParamToObs::WaveParamToObs(WaveOperator *wave_fwd_, WaveOperator *wave_adj_,
    
    vis_fwd = 0;
    vis_adj = 0;
-   count_fwd = 0;
-   count_adj = 0;
+   count_fwd_text = 0;
+   count_adj_text = 0;
+   count_fwd_binary = 0;
+   count_adj_binary = 0;
 }
 
 void WaveParamToObs::GetObs(Vector** &obs) const
@@ -392,27 +401,28 @@ void WaveParamToObs::MultTranspose(Vector **data, GridFunction** &adj) const
    GetAdj(adj);
 }
 
-void WaveParamToObs::MetaToFile(bool adj)
+void WaveParamToObs::MetaToFile(bool adj, bool binary)
 {
-   // "rel_path" must be an existing directory
-   // "rel_path" + "prefix" must be an existing directory
+   string prefix, suffix;
    
    rel_path = "./p2o/";
+   if (binary) { rel_path += "binary/"; suffix = ".h5"; }
+   else        { rel_path += "text/"; suffix = ".txt"; }
    
    string filename = rel_path;
-   string prefix;
-   string suffix = ".txt";
    if (adj)
    {
       filename += "meta_adj";
       prefix_adj = "adj/vec_";
       prefix = prefix_adj;
+      CreateDirectory(rel_path+"adj", nullptr, 0);
    }
    else
    {
       filename += "meta_fwd";
       prefix_fwd = "fwd/vec_";
       prefix = prefix_fwd;
+      CreateDirectory(rel_path+"fwd", nullptr, 0);
    }
    
    // Note: the output here defines the block structure of the
@@ -436,67 +446,109 @@ void WaveParamToObs::MetaToFile(bool adj)
 }
 
 // TODO: Write binary .h5
-void WaveParamToObs::FwdToFile(Vector **obs)
+void WaveParamToObs::FwdToFile(Vector **obs, bool binary)
 {
-   if (count_fwd == 0)
-   {
-      MetaToFile(false);
-   }
-
    ostringstream filename_oss;
-   filename_oss << rel_path << prefix_fwd << setfill('0') << setw(6) << count_fwd << ".txt";
+   if (binary)
+   {
+      if (count_fwd_binary == 0)
+      {
+         MetaToFile(false, binary);
+      }
+      filename_oss << rel_path << prefix_fwd
+                   << setfill('0') << setw(6) << count_fwd_binary << ".h5";
+      count_fwd_binary++;
+   }
+   else
+   {
+      if (count_fwd_text == 0)
+      {
+         MetaToFile(false, binary);
+      }
+      filename_oss << rel_path << prefix_fwd
+                   << setfill('0') << setw(6) << count_fwd_text << ".txt";
+      count_fwd_text++;
+   }
 
    cout << "FwdToFile: writing to " << filename_oss.str() << endl;
-   ofstream fwd_file;
-   fwd_file.open(filename_oss.str());
    
-   for (int k = 0; k < obs_steps; k++)
+   if (binary)
    {
-      Vector &tmp = *(obs[k]);
-      MFEM_VERIFY(tmp.Size() == n_obs,
-                  "Size of obs vector does not match.");
-      for (int i = 0; i < tmp.Size(); i++)
+      MFEM_ABORT("Binary write not yet implemented.");
+   }
+   else
+   {
+      ofstream fwd_file;
+      fwd_file.open(filename_oss.str());
+
+      for (int k = 0; k < obs_steps; k++)
       {
-         fwd_file << scientific << tmp[i] << endl;
+         Vector &tmp = *(obs[k]);
+         MFEM_VERIFY(tmp.Size() == n_obs,
+                     "Size of obs vector does not match.");
+         for (int i = 0; i < tmp.Size(); i++)
+         {
+            fwd_file << scientific << tmp[i] << endl;
+         }
       }
+
+      fwd_file.close();
    }
    
-   fwd_file.close();
    cout << "FwdToFile: done." << endl;
-   
-   count_fwd++;
 }
 
 // TODO: Write binary .h5
-void WaveParamToObs::AdjToFile(GridFunction **adj)
+void WaveParamToObs::AdjToFile(GridFunction **adj, bool binary)
 {
-   if (count_adj == 0)
-   {
-      MetaToFile(true);
-   }
-   
    ostringstream filename_oss;
-   filename_oss << rel_path << prefix_adj << setfill('0') << setw(6) << count_adj << ".txt";
+   if (binary)
+   {
+      if (count_adj_binary == 0)
+      {
+         MetaToFile(true, binary);
+      }
+      filename_oss << rel_path << prefix_fwd
+                   << setfill('0') << setw(6) << count_adj_binary << ".h5";
+      count_adj_binary++;
+   }
+   else
+   {
+      if (count_adj_text == 0)
+      {
+         MetaToFile(true, binary);
+      }
+      filename_oss << rel_path << prefix_fwd
+                   << setfill('0') << setw(6) << count_adj_text << ".txt";
+      count_adj_text++;
+   }
 
    cout << "AdjToFile: writing to " << filename_oss.str() << endl;
-   ofstream adj_file;
-   adj_file.open(filename_oss.str());
    
-   for (int k = 0; k < param_steps; k++)
+   if (binary)
    {
-      GridFunction &tmp = *(adj[k]);
-      MFEM_VERIFY(tmp.Size() == n_param,
-                  "Size of adj vector does not match.");
-      for (int i = 0; i < tmp.Size(); i++)
+      MFEM_ABORT("Binary write not yet implemented.");
+   }
+   else
+   {
+      ofstream adj_file;
+      adj_file.open(filename_oss.str());
+
+      for (int k = 0; k < param_steps; k++)
       {
-         adj_file << scientific << tmp[i] << endl;
+         GridFunction &tmp = *(adj[k]);
+         MFEM_VERIFY(tmp.Size() == n_param,
+                     "Size of adj vector does not match.");
+         for (int i = 0; i < tmp.Size(); i++)
+         {
+            adj_file << scientific << tmp[i] << endl;
+         }
       }
+
+      adj_file.close();
    }
    
-   adj_file.close();
    cout << "AdjToFile: done." << endl;
-
-   count_adj++;
 }
 
 GridFunction** WaveParamToObs::ParamToGF(function<double(const Vector &, double)> TDF) const
@@ -516,4 +568,44 @@ GridFunction** WaveParamToObs::ParamToGF(function<double(const Vector &, double)
    return params;
 }
 
+/// static method (copied from DataCollection::create_directory)
+int WaveParamToObs::CreateDirectory(const std::string &dir_name,
+                                    const Mesh *mesh, int myid)
+{
+   // create directories recursively
+   const char path_delim = '/';
+   std::string::size_type pos = 0;
+   int err_flag;
+#ifdef MFEM_USE_MPI
+   const ParMesh *pmesh = dynamic_cast<const ParMesh*>(mesh);
+#endif
+
+   do
+   {
+      pos = dir_name.find(path_delim, pos+1);
+      std::string subdir = dir_name.substr(0, pos);
+
+#ifndef MFEM_USE_MPI
+      err_flag = mkdir(subdir.c_str(), 0777);
+      err_flag = (err_flag && (errno != EEXIST)) ? 1 : 0;
+#else
+      if (myid == 0 || pmesh == NULL)
+      {
+         err_flag = mkdir(subdir.c_str(), 0777);
+         err_flag = (err_flag && (errno != EEXIST)) ? 1 : 0;
+      }
+#endif
+   }
+   while ( pos != std::string::npos );
+
+#ifdef MFEM_USE_MPI
+   if (pmesh)
+   {
+      MPI_Bcast(&err_flag, 1, MPI_INT, 0, pmesh->GetComm());
+   }
+#endif
+
+   return err_flag;
 }
+
+} // close namespace mfem

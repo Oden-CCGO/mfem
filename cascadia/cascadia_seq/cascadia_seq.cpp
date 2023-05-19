@@ -521,7 +521,8 @@ int main(int argc, char *argv[])
       // 11b. Write observations to file
       if (observations)
       {
-         wave_p2o.FwdToFile(obs);
+         bool binary = false;
+         wave_p2o.FwdToFile(obs, binary);
       }
    }
    
@@ -542,6 +543,11 @@ int main(int argc, char *argv[])
             *(data[k]) = 0.0;
             (*(data[k]))[0] = 1.0; // TODO: define data (adjoint load)
          }
+         // TODO: to get the compact (block Toeplitz representation of the)
+         //       adjoint p2o map, we need to set entries of data[obs_steps-1]
+         //       and record the adjoint p2o mapping to the parameter space
+         //       NOTE: if param_steps, obs_steps are not "1", then we need to
+         //             record more rows (block Toeplitz structure changes)
       }
    
       // load defined by GridFunctionCoefficient from data for each time step
@@ -550,7 +556,8 @@ int main(int argc, char *argv[])
       // 12b. Write adjoint output to file
       if (observations)
       {
-         wave_p2o.AdjToFile(adj_gf);
+         bool binary = false;
+         wave_p2o.AdjToFile(adj_gf, binary);
       }
    }
 
