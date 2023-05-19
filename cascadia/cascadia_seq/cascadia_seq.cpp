@@ -92,9 +92,13 @@ int main(int argc, char *argv[])
                   "         100 - unknown solution: forcing with single (x,y) Gaussian deformation,\n\t"
                   "  [N/A]  200 - unknown solution: forcing with superimposed Gaussian deformations)");
    args.AddOption(&fwd, "-fwd", "--forward",
-                  "Enable (1) / disable (0) forward solve.");
+                  "Forward solve: 0 - Disable forward operator,\n\t",
+                  "               1 - Enable forward operator (one solve),\n\t"
+                  "               2 - Use forward operator to export p2o map.");
    args.AddOption(&adj, "-adj", "--adjoint",
-                  "Enable (1) / disable (0) adjoint solve.");
+                  "Adjoint solve: 0 - Disable adjoint operator,\n\t",
+                  "               1 - Enable adjoint operator (one solve),\n\t"
+                  "               2 - Use adjoint operator to export adjoint p2o map.");
    args.AddOption(&order, "-o", "--order",
                   "Finite element order (polynomial degree).");
    args.AddOption(&ode_solver_type, "-ode", "--ode-solver",
@@ -414,7 +418,7 @@ int main(int argc, char *argv[])
    const int height = DG_space->GetTrueVSize() + CG_space->GetTrueVSize();
    
    WaveOperator *wave_fwd = nullptr;
-   if (fwd == 1)
+   if (fwd)
    {
       cout << endl << "Creating WaveOperator (forward)..." << endl;
       wave_fwd = new WaveOperator(*DG_space, *CG_space, *param_space, wave_map, wave_obs,
@@ -424,7 +428,7 @@ int main(int argc, char *argv[])
    }
    
    WaveOperator *wave_adj = nullptr;
-   if (adj == 1)
+   if (adj)
    {
       cout << endl << "Creating WaveOperator (adjoint)..." << endl;
       wave_adj = new WaveOperator(*DG_space, *CG_space, *param_space, wave_map, wave_obs,
@@ -483,12 +487,12 @@ int main(int argc, char *argv[])
    //       -> only used for unknown solutions
    GridFunction **params = nullptr;
    bool test_store_load = true;
-   if (test_store_load && WaveSolution::IsUnknown() && fwd)
+   if (test_store_load && WaveSolution::IsUnknown() && fwd==1)
    {
       cout << "Storing p2o fwd load (parameter) via GridFunctionCoefficients." << endl << endl;
       params = wave_p2o.ParamToGF(WaveSolution::mParameter);
    }
-   else if (fwd)
+   else if (fwd==1)
    {
       cout << "Defining p2o fwd load (parameter) via time-dependent function." << endl << endl;
    }
@@ -496,7 +500,8 @@ int main(int argc, char *argv[])
    
    // 11a. Specify parameter (load) and call p2o map
    Vector **obs = nullptr;
-   if (fwd == 1)
+   bool binary = false; // specify format of output data
+   if (fwd == 1) // do one forward solve
    {
       if (WaveSolution::IsKnown())
       {
@@ -521,16 +526,52 @@ int main(int argc, char *argv[])
       // 11b. Write observations to file
       if (observations)
       {
-         bool binary = false;
          wave_p2o.FwdToFile(obs, binary);
       }
+   }
+   else if (fwd == 2)
+   {
+      cout << "Doing repeated forward solves to create and export p2o map." << endl;
+
+      // Observations are defined every m-th step of the parameter input
+      // so the Block Toeplitz structure occurs at the level of m subblocks
+      const int m = param_steps / obs_steps;
+
+      // Create data (load) for adjoint problem
+      params = new GridFunction*[param_steps];
+      for (int k = 0; k < param_steps; k++)
+      {
+         params[k] = new GridFunction(param_space);
+         *(params[k]) = 0.0;
+      }
+      const int n_param = param_space->GetVSize();
+
+      // Activate one nodal dof (one parameter) at a time
+      // to obtain one column of p2o map
+      chrono.Clear();
+      for (int k = 0; k < m; k++) // do m := param_steps to write all columns (not compact version)
+      {
+         MFEM_VERIFY(params[k]->Size() == n_param, "Check vec size.");
+         for (int j = 0; j < n_param; j++)
+         {
+            cout << endl << "+++ Forward solve number " << (k*n_param)+(j+1) << " / " << m*n_param << endl << endl;
+            // Activate j-th parameter at k-th time (forward load),
+            // yielding the (k*n_param+j)-th column of the p2o map
+            (*(params[k]))[j] = 1.0;
+            wave_p2o.Mult(params, obs);
+            wave_p2o.FwdToFile(obs, binary);
+            wave_fwd->ResetLoad();
+            (*(params[k]))[j] = 0.0;
+         }
+      }
+      cout << endl << m*n_param << " forward solves took " << chrono.RealTime() << " seconds." << endl;
    }
    
    Vector **data = nullptr;
    GridFunction **adj_gf = nullptr;
    if (adj == 1) {
       // 12a. Specify data (adjoint load) and call transpose p2o map
-      if (fwd)
+      if (fwd == 1)
       {
          data = obs; // use observations from fwd solve as input to adjoint
       }
@@ -543,11 +584,6 @@ int main(int argc, char *argv[])
             *(data[k]) = 0.0;
             (*(data[k]))[0] = 1.0; // TODO: define data (adjoint load)
          }
-         // TODO: to get the compact (block Toeplitz representation of the)
-         //       adjoint p2o map, we need to set entries of data[obs_steps-1]
-         //       and record the adjoint p2o mapping to the parameter space
-         //       NOTE: if param_steps, obs_steps are not "1", then we need to
-         //             record more rows (block Toeplitz structure changes)
       }
    
       // load defined by GridFunctionCoefficient from data for each time step
@@ -556,9 +592,42 @@ int main(int argc, char *argv[])
       // 12b. Write adjoint output to file
       if (observations)
       {
-         bool binary = false;
          wave_p2o.AdjToFile(adj_gf, binary);
       }
+   }
+   else if (adj == 2)
+   {
+      cout << "Doing repeated adjoint solves to create and export adjoint p2o map." << endl;
+
+      // Parameters are defined at every observation time
+      const int m = 1;
+
+      // Create data (load) for adjoint problem
+      data = new Vector*[obs_steps];
+      for (int k = 0; k < obs_steps; k++)
+      {
+         data[k] = new Vector(n_obs);
+         *(data[k]) = 0.0;
+      }
+
+      // Activate one nodal dof (one sensor) at a time
+      // to obtain one column of adjoint p2o map
+      chrono.Clear();
+      for (int k = obs_steps-m; k < obs_steps; k++) // do m := obs_steps to write all columns (not compact version)
+      {
+         for (int j = 0; j < n_obs; j++)
+         {
+            cout << endl << "+++ Adjoint solve number " << (k-(obs_steps-m))*n_obs+(j+1) << " / " << m*n_obs << endl << endl;
+            // Compacted version: activate j-th sensor at terminal time (adjoint load),
+            // yielding the j-th column of the last column block of adjoint p2o map
+            (*(data[k]))[j] = 1.0;
+            wave_p2o.MultTranspose(data, adj_gf);
+            wave_p2o.AdjToFile(adj_gf, binary);
+            wave_adj->ResetLoad();
+            (*(data[k]))[j] = 0.0;
+         }
+      }
+      cout << endl << m*n_obs << " adjoint solves took " << chrono.RealTime() << " seconds." << endl;
    }
 
    // 13. Free the used memory.

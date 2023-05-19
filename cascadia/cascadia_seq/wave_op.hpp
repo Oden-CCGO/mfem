@@ -130,6 +130,9 @@ public:
    /// Update time-dependent load for the adjoint (rhs)
    void UpdateAdjLoad() const;
    
+   /// Reset internal variables for stored load
+   void ResetLoad();
+
    int ParamRate() { return param_rate; }
    int ParamSteps() { return param_steps; }
    int ObsRate() { return obs_rate; }

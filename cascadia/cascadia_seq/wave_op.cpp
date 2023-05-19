@@ -307,6 +307,7 @@ void WaveOperator::StoreLoad(const GridFunction *const parameters_[])
 {
    MFEM_VERIFY(WaveSolution::IsUnknown(), "Load term for unknown solution only.");
    MFEM_VERIFY(!adj, "Use StoreAdjLoad for adjoint operator.");
+   MFEM_VERIFY(!init_load, "ResetLoad first.");
    
    delete gform;
    gform = new LinearForm();
@@ -337,6 +338,7 @@ void WaveOperator::StoreAdjLoad(const Vector* const data_[])
 {
    MFEM_VERIFY(WaveSolution::IsUnknown(), "Load term for unknown solution only.");
    MFEM_VERIFY(adj, "Not an adjoint operator.");
+   MFEM_VERIFY(!init_load, "ResetLoad first.");
    
    delete gform;
    gform = new LinearForm();
@@ -357,6 +359,14 @@ void WaveOperator::StoreAdjLoad(const Vector* const data_[])
    init_load = true;
    store_load = true;
    cycle_load = 0;
+}
+
+void WaveOperator::ResetLoad()
+{
+   if (parameters) { delete parameters; parameters = nullptr; }
+   if (data) { delete data; data = nullptr; }
+   init_load = false;
+   store_load = false;
 }
 
 void WaveOperator::Cycle() const

@@ -508,7 +508,7 @@ void WaveParamToObs::AdjToFile(GridFunction **adj, bool binary)
       {
          MetaToFile(true, binary);
       }
-      filename_oss << rel_path << prefix_fwd
+      filename_oss << rel_path << prefix_adj
                    << setfill('0') << setw(6) << count_adj_binary << ".h5";
       count_adj_binary++;
    }
@@ -518,7 +518,7 @@ void WaveParamToObs::AdjToFile(GridFunction **adj, bool binary)
       {
          MetaToFile(true, binary);
       }
-      filename_oss << rel_path << prefix_fwd
+      filename_oss << rel_path << prefix_adj
                    << setfill('0') << setw(6) << count_adj_text << ".txt";
       count_adj_text++;
    }
