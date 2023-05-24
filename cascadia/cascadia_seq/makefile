@@ -26,7 +26,7 @@ MINIAPP = cascadia_seq
 .SUFFIXES:
 .SUFFIXES: .o .cpp .mk
 .PHONY: all clean clean-build clean-exec
-.PRECIOUS: %.o
+.PRECIOUS:
 
 CASCADIA_SRC = wave_map.cpp wave_obs.cpp wave_op.cpp wave_p2o.cpp wave_sol.cpp wave_vis.cpp
 

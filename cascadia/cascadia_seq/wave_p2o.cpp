@@ -1,5 +1,6 @@
 
 #include "cascadia.hpp"
+#include "hdf5.h"
 
 #ifndef _WIN32
 #include <sys/stat.h>  // mkdir
@@ -445,10 +446,10 @@ void WaveParamToObs::MetaToFile(bool adj, bool binary)
    cout << "MetaToFile: done." << endl;
 }
 
-// TODO: Write binary .h5
+// TODO: error handling
 void WaveParamToObs::FwdToFile(Vector **obs, bool binary)
 {
-   ostringstream filename_oss;
+   ostringstream filename_oss, dataset_oss;
    if (binary)
    {
       if (count_fwd_binary == 0)
@@ -457,6 +458,7 @@ void WaveParamToObs::FwdToFile(Vector **obs, bool binary)
       }
       filename_oss << rel_path << prefix_fwd
                    << setfill('0') << setw(6) << count_fwd_binary << ".h5";
+      dataset_oss << "fwd_vec_" << setfill('0') << setw(6) << count_fwd_binary;
       count_fwd_binary++;
    }
    else
@@ -474,7 +476,45 @@ void WaveParamToObs::FwdToFile(Vector **obs, bool binary)
    
    if (binary)
    {
-      MFEM_ABORT("Binary write not yet implemented.");
+      // Create file
+      hid_t file_id;
+      herr_t status;
+      file_id = H5Fcreate(filename_oss.str().c_str(), H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
+
+      // Create dataspace
+      hsize_t rank = 1;
+      hsize_t ddim = obs_steps*n_obs;
+      hid_t dspace_id;
+      dspace_id = H5Screate_simple(rank, &ddim, NULL);
+
+      // Create dataset
+      hid_t dset_id;
+      dset_id = H5Dcreate(file_id, dataset_oss.str().c_str(), H5T_NATIVE_DOUBLE, dspace_id,
+                          H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+
+      // Write dataset
+      // TODO: write dataset chunks directly from vector data: tmp.Read() or tmp.GetData()
+      double *dset_data = new double[obs_steps*n_obs];
+      for (int k = 0; k < obs_steps; k++)
+      {
+         Vector &tmp = *(obs[k]);
+         MFEM_VERIFY(tmp.Size() == n_obs,
+                     "Size of obs vector does not match.");
+         for (int i = 0; i < n_obs; i++)
+         {
+            dset_data[k*n_obs+i] = tmp[i];
+         }
+      }
+      H5Dwrite(dset_id, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, dset_data);
+
+      // Close dataset
+      status = H5Dclose(dset_id);
+
+      // Close dataspace
+      status = H5Sclose(dspace_id);
+
+      // Close file
+      status = H5Fclose(file_id);
    }
    else
    {
@@ -486,7 +526,7 @@ void WaveParamToObs::FwdToFile(Vector **obs, bool binary)
          Vector &tmp = *(obs[k]);
          MFEM_VERIFY(tmp.Size() == n_obs,
                      "Size of obs vector does not match.");
-         for (int i = 0; i < tmp.Size(); i++)
+         for (int i = 0; i < n_obs; i++)
          {
             fwd_file << scientific << tmp[i] << endl;
          }
@@ -498,10 +538,10 @@ void WaveParamToObs::FwdToFile(Vector **obs, bool binary)
    cout << "FwdToFile: done." << endl;
 }
 
-// TODO: Write binary .h5
+// TODO: error handling
 void WaveParamToObs::AdjToFile(GridFunction **adj, bool binary)
 {
-   ostringstream filename_oss;
+   ostringstream filename_oss, dataset_oss;
    if (binary)
    {
       if (count_adj_binary == 0)
@@ -510,6 +550,7 @@ void WaveParamToObs::AdjToFile(GridFunction **adj, bool binary)
       }
       filename_oss << rel_path << prefix_adj
                    << setfill('0') << setw(6) << count_adj_binary << ".h5";
+      dataset_oss << "adj_vec_" << setfill('0') << setw(6) << count_adj_binary;
       count_adj_binary++;
    }
    else
@@ -527,7 +568,45 @@ void WaveParamToObs::AdjToFile(GridFunction **adj, bool binary)
    
    if (binary)
    {
-      MFEM_ABORT("Binary write not yet implemented.");
+      // Create file
+      hid_t file_id;
+      herr_t status;
+      file_id = H5Fcreate(filename_oss.str().c_str(), H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
+
+      // Create dataspace
+      hsize_t rank = 1;
+      hsize_t ddim = param_steps*n_param;
+      hid_t dspace_id;
+      dspace_id = H5Screate_simple(rank, &ddim, NULL);
+
+      // Create dataset
+      hid_t dset_id;
+      dset_id = H5Dcreate(file_id, dataset_oss.str().c_str(), H5T_NATIVE_DOUBLE, dspace_id,
+                          H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+
+      // Write dataset
+      // TODO: write dataset chunks directly from vector data: tmp.Read() or tmp.GetData()
+      double *dset_data = new double[param_steps*n_param];
+      for (int k = 0; k < param_steps; k++)
+      {
+         Vector &tmp = *(adj[k]);
+         MFEM_VERIFY(tmp.Size() == n_param,
+                     "Size of adj vector does not match.");
+         for (int i = 0; i < n_param; i++)
+         {
+            dset_data[k*n_param+i] = tmp[i];
+         }
+      }
+      H5Dwrite(dset_id, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, dset_data);
+
+      // Close dataset
+      status = H5Dclose(dset_id);
+
+      // Close dataspace
+      status = H5Sclose(dspace_id);
+
+      // Close file
+      status = H5Fclose(file_id);
    }
    else
    {
@@ -539,7 +618,7 @@ void WaveParamToObs::AdjToFile(GridFunction **adj, bool binary)
          GridFunction &tmp = *(adj[k]);
          MFEM_VERIFY(tmp.Size() == n_param,
                      "Size of adj vector does not match.");
-         for (int i = 0; i < tmp.Size(); i++)
+         for (int i = 0; i < n_param; i++)
          {
             adj_file << scientific << tmp[i] << endl;
          }

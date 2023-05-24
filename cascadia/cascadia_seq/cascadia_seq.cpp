@@ -500,7 +500,7 @@ int main(int argc, char *argv[])
    
    // 11a. Specify parameter (load) and call p2o map
    Vector **obs = nullptr;
-   bool binary = false; // specify format of output data
+   bool binary = true; // specify format of output data
    if (fwd == 1) // do one forward solve
    {
       if (WaveSolution::IsKnown())
