@@ -120,7 +120,7 @@ MFEM_MPI_NP = 4
 MFEM_USE_MPI           = YES
 MFEM_USE_METIS         = $(MFEM_USE_MPI)
 MFEM_USE_METIS_5       = YES
-MFEM_DEBUG             = NO
+MFEM_DEBUG             = YES
 MFEM_USE_EXCEPTIONS    = NO
 MFEM_USE_ZLIB          = NO
 MFEM_USE_LIBUNWIND     = NO
@@ -210,8 +210,8 @@ PETSC_DIR :=
 
 # HYPRE library configuration (needed to build the parallel version)
 HYPRE_DIR =
-HYPRE_OPT = -I$(TACC_HYPRE_INC)
-HYPRE_LIB = -L$(TACC_HYPRE_LIB) -lHYPRE
+HYPRE_OPT = -I$(TACC_PETSC_INC)
+HYPRE_LIB = -L$(TACC_PETSC_LIB) -lHYPRE
 ifeq (YES,$(MFEM_USE_CUDA))
    # This is only necessary when hypre is built with cuda:
    HYPRE_LIB += -lcusparse -lcurand -lcublas
@@ -221,6 +221,10 @@ ifeq (YES,$(MFEM_USE_HIP))
    HYPRE_LIB += -L$(HIP_DIR)/lib $(XLINKER)-rpath,$(HIP_DIR)/lib\
  -lrocsparse -lrocrand
 endif
+
+# Adding HDF5 libs (without NETCDF)
+HYPRE_OPT += -I$(TACC_HDF5_INC)
+HYPRE_LIB += -L$(TACC_HDF5_LIB) -lhdf5_hl -lhdf5
 
 # METIS library configuration
 ifeq ($(MFEM_USE_SUPERLU)$(MFEM_USE_STRUMPACK)$(MFEM_USE_MUMPS),NONONO)
@@ -298,8 +302,8 @@ MUMPS_LIB = $(XLINKER)-rpath,$(MUMPS_DIR)/lib -L$(MUMPS_DIR)/lib -ldmumps\
  -lmumps_common -lpord $(SCALAPACK_LIB) $(LAPACK_LIB) $(MPI_FORTRAN_LIB)
 
 # NetCDF library configuration
-NETCDF_DIR = $(HOME)/local
-HDF5_DIR   = $(HOME)/local
+NETCDF_DIR = $(TACC_NETCDF_DIR)
+HDF5_DIR   = $(TACC_HDF5_DIR)
 NETCDF_OPT = -I$(NETCDF_DIR)/include -I$(HDF5_DIR)/include $(ZLIB_OPT)
 NETCDF_LIB = $(XLINKER)-rpath,$(NETCDF_DIR)/lib -L$(NETCDF_DIR)/lib\
  $(XLINKER)-rpath,$(HDF5_DIR)/lib -L$(HDF5_DIR)/lib\
