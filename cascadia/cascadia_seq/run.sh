@@ -22,11 +22,19 @@ m='mesh_file'
 #   200 - unknown solution: forcing with superimposed Gaussian deformations)
 p=100
 
-# Enable (1)/disable (0) forward solve
-fwd=1
+# Configure forward solve
+# 0: disable forward operator
+# 1: enable forward operator (one solve)
+# 2: use forward operator to export p2o map
+#    (number of solves ~ number of parameters)
+fwd=2
 
-# Enable (1)/disable (0) adjoint solve
-adj=1
+# Configure adjoint solve
+# 0: disable adjoint operator
+# 1: enable adjoint operator (one solve)
+# 2: use adjoint operator to export adjoint p2o map
+#    (number of solves ~ number of sensors)
+adj=0
 
 # Polynomial order of approximation
 #   order_p = o   (scalar-valued H1 pressure space)
@@ -53,28 +61,28 @@ ref=3
 tf=0.01
 
 # Number of time steps
-nt=10
+nt=8
 
 # Parameter is defined for every n-th time step
 # - only used for unknown solution
 # - must evenly divide the number of time steps
-param_rate=1
+param_rate=2
 
 # Observations are defined for every n-th time step (sensor frequency)
 # - only used for unknown solution
 # - must evenly divide the number of time steps
 # - must be a multiple of param_rate
-obs_rate=2
+obs_rate=4
 
 # Number of observers in x,y direction (uniformly placed)
 nx_obs=3
 ny_obs=3
 
-# Enable/disable writing observations (forward solve only)
-obs=true
+# Enable/disable writing observations (fwd/adj output)
+obs=false
 
 # Enable/disable writing paraview vis files
-vis=true
+vis=false
 
 # If vis files enabled, every n-th step they are written
 vs=5

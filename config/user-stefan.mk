@@ -120,7 +120,7 @@ MFEM_MPI_NP = 4
 MFEM_USE_MPI           = YES
 MFEM_USE_METIS         = $(MFEM_USE_MPI)
 MFEM_USE_METIS_5       = YES
-MFEM_DEBUG             = NO
+MFEM_DEBUG             = YES
 MFEM_USE_EXCEPTIONS    = NO
 MFEM_USE_ZLIB          = NO
 MFEM_USE_LIBUNWIND     = NO
@@ -133,15 +133,15 @@ MFEM_TIMER_TYPE        = $(if $(NOTMAC),2,4)
 MFEM_USE_SUNDIALS      = NO
 MFEM_USE_MESQUITE      = NO
 MFEM_USE_SUITESPARSE   = NO
-MFEM_USE_SUPERLU       = YES
+MFEM_USE_SUPERLU       = NO
 MFEM_USE_SUPERLU5      = NO
-MFEM_USE_MUMPS         = YES
+MFEM_USE_MUMPS         = NO
 MFEM_USE_STRUMPACK     = NO
 MFEM_USE_GINKGO        = NO
 MFEM_USE_AMGX          = NO
 MFEM_USE_GNUTLS        = NO
 MFEM_USE_NETCDF        = NO
-MFEM_USE_PETSC         = YES
+MFEM_USE_PETSC         = NO
 MFEM_USE_SLEPC         = NO
 MFEM_USE_MPFR          = NO
 MFEM_USE_SIDRE         = NO
@@ -217,6 +217,10 @@ ifeq (YES,$(MFEM_USE_HIP))
    HYPRE_LIB += -L$(HIP_DIR)/lib $(XLINKER)-rpath,$(HIP_DIR)/lib\
  -lrocsparse -lrocrand
 endif
+
+# Adding HDF5 libs (without NETCDF)
+HYPRE_OPT += -I/Users/stefan/hp3D/LIBS/petsc/arch-darwin-real/include
+HYPRE_LIB += -L/Users/stefan/hp3D/LIBS/petsc/arch-darwin-real/lib -lhdf5_hl -lhdf5
 
 # METIS library configuration
 ifeq ($(MFEM_USE_SUPERLU)$(MFEM_USE_STRUMPACK)$(MFEM_USE_MUMPS),NONONO)
