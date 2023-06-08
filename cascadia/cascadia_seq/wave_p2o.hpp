@@ -47,13 +47,13 @@ protected:
    int count_adj_text;   // counter for h5 file suffix (adjoint map)
    int count_fwd_binary; // counter for txt file suffix (forward map)
    int count_adj_binary; // counter for txt file suffix (adjoint map)
+   bool memcpy; // specifies whether FwdToFile/AdjToFile copy sub-vectors
+                // into a global vector before writing to dataset
+   bool reverse_order; // specifies whether adj_vec are written in block-reverse
+                       // order as is needed by the FFT matvec code
    
    /// Write metadata to file
    void MetaToFile(bool adj, bool binary=false);
-
-   /// Helper function
-   int CreateDirectory(const std::string &dir_name,
-                       const Mesh *mesh, int myid);
 
 public:
    WaveParamToObs(WaveOperator *wave_fwd_, WaveOperator *wave_adj_,
@@ -85,6 +85,10 @@ public:
    /// Project a TD function onto GridFunctions for each time step
    GridFunction** ParamToGF(std::function<double(const Vector &, double)> TDF) const;
    
+   /// Helper function
+   static int CreateDirectory(const std::string &dir_name,
+                              const Mesh *mesh, int myid);
+
    ~WaveParamToObs() { }
 };
 

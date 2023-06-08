@@ -61,6 +61,10 @@ int main(int argc, char *argv[])
    int problem = 1;
    int fwd = 1;
    int adj = 0;
+   int prior = 0;
+   double alpha1 = 1.0;
+   double alpha2 = 1.0;
+   double alpha3 = 0.0;
    int order = 2;
    int ode_solver_type = 11;
    bool lump = false;
@@ -74,6 +78,7 @@ int main(int argc, char *argv[])
    bool observations = true;
    bool visualization = true;
    int vis_steps = 5;
+   bool hdf = true;
    bool pa = false;
    const char *device_config = "cpu";
 
@@ -92,13 +97,23 @@ int main(int argc, char *argv[])
                   "         100 - unknown solution: forcing with single (x,y) Gaussian deformation,\n\t"
                   "  [N/A]  200 - unknown solution: forcing with superimposed Gaussian deformations)");
    args.AddOption(&fwd, "-fwd", "--forward",
-                  "Forward solve: 0 - Disable forward operator,\n\t",
+                  "Forward solve: 0 - Disable forward operator,\n\t"
                   "               1 - Enable forward operator (one solve),\n\t"
                   "               2 - Use forward operator to export p2o map.");
    args.AddOption(&adj, "-adj", "--adjoint",
-                  "Adjoint solve: 0 - Disable adjoint operator,\n\t",
+                  "Adjoint solve: 0 - Disable adjoint operator,\n\t"
                   "               1 - Enable adjoint operator (one solve),\n\t"
                   "               2 - Use adjoint operator to export adjoint p2o map.");
+   args.AddOption(&prior, "-prior", "--prior",
+                  "Prior: 0 - Do not assemble prior,\n\t"
+                  "       1 - Laplacian prior (assemble + write to file),\n\t"
+                  "       2 - Bi-Laplacian prior (assemble + write to file).");
+   args.AddOption(&alpha1, "-alpha1", "--alpha1",
+                  "Regularization parameter for scaling |m|.");
+   args.AddOption(&alpha2, "-alpha2", "--alpha2",
+                  "Regularization parameter for scaling |grad m|.");
+   args.AddOption(&alpha3, "-alpha3", "--alpha3",
+                  "Regularization parameter for scaling |dm/dt|.");
    args.AddOption(&order, "-o", "--order",
                   "Finite element order (polynomial degree).");
    args.AddOption(&ode_solver_type, "-ode", "--ode-solver",
@@ -128,13 +143,14 @@ int main(int argc, char *argv[])
                   "Enable or disable writing paraview visualization files.");
    args.AddOption(&vis_steps, "-vs", "--visualization-steps",
                   "Write visualization files every n-th timestep.");
+   args.AddOption(&hdf, "-hdf", "--hdf-format", "-no-hdf", "--no-hdf-format",
+                  "Enable or disable HDF5 binary output format.");
                   
    // PA and Device options not yet supported in this code
    args.AddOption(&pa, "-pa", "--partial-assembly", "-no-pa", "--no-partial-assembly",
                   "Enable or disable Partial Assembly.");
    args.AddOption(&device_config, "-d", "--device",
                   "Device configuration string, see Device::Configure().");
-   
    
    args.Parse();
    if (!args.Good())
@@ -415,7 +431,7 @@ int main(int argc, char *argv[])
    // 7. Initialize wave operators, BCs, forcing terms, and analytical solution (if any)
    WaveSolution::Init(problem);
    
-   const int height = DG_space->GetTrueVSize() + CG_space->GetTrueVSize();
+   int height = DG_space->GetTrueVSize() + CG_space->GetTrueVSize();
    
    WaveOperator *wave_fwd = nullptr;
    if (fwd)
@@ -480,8 +496,12 @@ int main(int argc, char *argv[])
    WaveVis wave_vis(mesh, visualization, vis_steps, order);
    
    // 10. Create p2o operator
-   WaveParamToObs wave_p2o(wave_fwd, wave_adj, wave_obs, wave_map, wave_vis,
-                           *ode_solver, n_steps, dt);
+   WaveParamToObs *wave_p2o = nullptr;
+   if (wave_fwd || wave_adj)
+   {
+      wave_p2o = new WaveParamToObs(wave_fwd, wave_adj, wave_obs, wave_map, wave_vis,
+                                    *ode_solver, n_steps, dt);
+   }
    
    // TEST: Create loads for all time-steps using GridFunctionCoefficients
    //       -> only used for unknown solutions
@@ -490,7 +510,7 @@ int main(int argc, char *argv[])
    if (test_store_load && WaveSolution::IsUnknown() && fwd==1)
    {
       cout << "Storing p2o fwd load (parameter) via GridFunctionCoefficients." << endl << endl;
-      params = wave_p2o.ParamToGF(WaveSolution::mParameter);
+      params = wave_p2o->ParamToGF(WaveSolution::mParameter);
    }
    else if (fwd==1)
    {
@@ -500,14 +520,13 @@ int main(int argc, char *argv[])
    
    // 11a. Specify parameter (load) and call p2o map
    Vector **obs = nullptr;
-   bool binary = true; // specify format of output data
    if (fwd == 1) // do one forward solve
    {
       if (WaveSolution::IsKnown())
       {
          // For known solution, parameters are already defined
          // by TD function WaveSolution::mParameter
-         wave_p2o.GetObs(obs);
+         wave_p2o->GetObs(obs);
       }
       else
       {
@@ -515,18 +534,18 @@ int main(int argc, char *argv[])
          if (params)
          {
             // load defined by GridFunctionCoefficient for each time step
-            wave_p2o.Mult(params, obs);
+            wave_p2o->Mult(params, obs);
          }
          else
          {
             // load defined by a time-dependent function
-            wave_p2o.Mult(WaveSolution::mParameter, obs);
+            wave_p2o->Mult(WaveSolution::mParameter, obs);
          }
       }
       // 11b. Write observations to file
       if (observations)
       {
-         wave_p2o.FwdToFile(obs, binary);
+         wave_p2o->FwdToFile(obs, hdf);
       }
    }
    else if (fwd == 2)
@@ -535,7 +554,8 @@ int main(int argc, char *argv[])
 
       // Observations are defined every m-th step of the parameter input
       // so the Block Toeplitz structure occurs at the level of m subblocks
-      const int m = param_steps / obs_steps;
+      const int m = param_steps / obs_steps; // SWITCH: write compact p2o map (first column block)
+//      const int m = param_steps; // write full p2o map (all column blocks)
 
       // Create data (load) for adjoint problem
       params = new GridFunction*[param_steps];
@@ -558,8 +578,8 @@ int main(int argc, char *argv[])
             // Activate j-th parameter at k-th time (forward load),
             // yielding the (k*n_param+j)-th column of the p2o map
             (*(params[k]))[j] = 1.0;
-            wave_p2o.Mult(params, obs);
-            wave_p2o.FwdToFile(obs, binary);
+            wave_p2o->Mult(params, obs);
+            wave_p2o->FwdToFile(obs, hdf);
             wave_fwd->ResetLoad();
             (*(params[k]))[j] = 0.0;
          }
@@ -587,12 +607,12 @@ int main(int argc, char *argv[])
       }
    
       // load defined by GridFunctionCoefficient from data for each time step
-      wave_p2o.MultTranspose(data, adj_gf);
+      wave_p2o->MultTranspose(data, adj_gf);
       
       // 12b. Write adjoint output to file
       if (observations)
       {
-         wave_p2o.AdjToFile(adj_gf, binary);
+         wave_p2o->AdjToFile(adj_gf, hdf);
       }
    }
    else if (adj == 2)
@@ -600,7 +620,8 @@ int main(int argc, char *argv[])
       cout << "Doing repeated adjoint solves to create and export adjoint p2o map." << endl;
 
       // Parameters are defined at every observation time
-      const int m = 1;
+      const int m = 1; // SWITCH: write compact adjoint p2o map (last column block)
+//      const int m = obs_steps; // write full adjoint p2o map (all column blocks)
 
       // Create data (load) for adjoint problem
       data = new Vector*[obs_steps];
@@ -620,17 +641,28 @@ int main(int argc, char *argv[])
             cout << endl << "+++ Adjoint solve number " << (k-(obs_steps-m))*n_obs+(j+1) << " / " << m*n_obs << endl << endl;
             // Compacted version: activate j-th sensor at terminal time (adjoint load),
             // yielding the j-th column of the last column block of adjoint p2o map
-            (*(data[k]))[j] = 1.0;
-            wave_p2o.MultTranspose(data, adj_gf);
-            wave_p2o.AdjToFile(adj_gf, binary);
+            (*(data[k]))[j] = 1.0; // TODO: testing
+            wave_p2o->MultTranspose(data, adj_gf);
+            wave_p2o->AdjToFile(adj_gf, hdf);
             wave_adj->ResetLoad();
             (*(data[k]))[j] = 0.0;
          }
       }
       cout << endl << m*n_obs << " adjoint solves took " << chrono.RealTime() << " seconds." << endl;
    }
+   
+   MFEM_VERIFY(prior != 2, "Bi-Laplacian Prior not yet implemented.");
+   if (prior)
+   {
+      height = param_space->GetVSize() * param_steps;
+      WavePrior wave_prior(*param_space,
+                           height, prior,
+                           param_rate, param_steps,
+                           alpha1, alpha2, alpha3);
+      wave_prior.PriorToFile(hdf);
+   }
 
-   // 13. Free the used memory.
+   // 14. Free the used memory.
    cout << endl << "cascadia_seq: freeing memory" << endl;
    if (params)
    {
@@ -654,6 +686,7 @@ int main(int argc, char *argv[])
       delete adj_gf; adj_gf = nullptr;
    }
    
+   delete wave_p2o;
    delete wave_fwd;
    delete wave_adj;
    delete ode_solver;

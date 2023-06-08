@@ -91,9 +91,6 @@ WaveOperator::WaveOperator(FiniteElementSpace &fes_u_, FiniteElementSpace &fes_p
    //    with diagonal preconditioner
    //      P = [ diag(M_u)  0         ]
    //          [ 0          diag(M_p) ]
-   // TODO: exploit that when lumped and using explicit solver,
-   //       we only need on matvec per time step.
-   //       (No need for setup of a CG solver, prec.)
    BlockM_prec = new BlockDiagonalPreconditioner(block_offsets);
 
    invM_u = new DSmoother(*M_u);
@@ -112,7 +109,7 @@ WaveOperator::WaveOperator(FiniteElementSpace &fes_u_, FiniteElementSpace &fes_p
    M_solver.SetRelTol(rel_tol);
    M_solver.SetAbsTol(abs_tol);
    M_solver.SetMaxIter(max_iter);
-   M_solver.SetPrintLevel(1);
+   M_solver.SetPrintLevel(0);
    M_solver.SetPreconditioner(*BlockM_prec);
    M_solver.SetOperator(*BlockM);
 
@@ -454,7 +451,6 @@ void WaveOperator::UpdateAdjLoad() const
       int k = cycle_load / obs_rate;
       int l = (obs_steps-1) - k;
       wave_obs.ObservationToState(*(data[l]), *p_gf);
-      (*p_gf) *= c2; // TODO: remove, only for fwd load
    }
    else
    {

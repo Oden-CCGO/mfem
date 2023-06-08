@@ -45,6 +45,9 @@ WaveParamToObs::WaveParamToObs(WaveOperator *wave_fwd_, WaveOperator *wave_adj_,
    count_adj_text = 0;
    count_fwd_binary = 0;
    count_adj_binary = 0;
+   
+   memcpy = false;
+   reverse_order = false;
 }
 
 void WaveParamToObs::GetObs(Vector** &obs) const
@@ -330,6 +333,14 @@ void WaveParamToObs::GetAdj(GridFunction** &adj) const
       adj[k] = new GridFunction(wave_adj->ParamFESpace());
    }
    
+   // TODO: verify
+//   GridFunction tmp(wave_adj->ParamFESpace());
+//   BilinearForm m_var(wave_adj->ParamFESpace());
+//   m_var.AddDomainIntegrator(new MassIntegrator(*(new ConstantCoefficient(-WaveSolution::c2))));
+//   m_var.Assemble();
+//   m_var.Finalize();
+//   SparseMatrix *M = &(m_var.SpMat());
+   
    // 7. Perform time-stepping
    chrono.Clear();
 
@@ -337,7 +348,6 @@ void WaveParamToObs::GetAdj(GridFunction** &adj) const
    double t_curr = n_steps*dt; // adjoint steps backward in time, starting at t=t_final
    for (int k = 1; k <= n_steps; k++)
    {
-      cout << k << endl;
       // perform time step (increments t_curr)
       double dtc = -dt;
       wave_adj->Cycle(); // necessary for updating GridFunctionCoefficient (if store_load)
@@ -362,7 +372,13 @@ void WaveParamToObs::GetAdj(GridFunction** &adj) const
          int l = k / param_rate;
          int m = param_steps - l; // (param_steps-1) - (l-1);
          p_gf.MakeRef(wave_adj->PressureFESpace(), x.GetBlock(1), 0);
-         wave_map.StateToParam(p_gf, *(adj[m])); // TODO: needs "-c2*p" w/o modifying x
+         wave_map.StateToParam(p_gf, *(adj[m]));
+         // TODO: multiply adj[m] with "-c2"
+         // TODO: multiply parameter space mass matrix with adj[m]
+         // TODO: adj[m] = M * adj[m]
+         *(adj[m]) *= -WaveSolution::c2;
+//         M->Mult(tmp, *(adj[m]));
+//         *(adj[m]) = tmp;
       }
       
       // Visualization
@@ -442,6 +458,10 @@ void WaveParamToObs::MetaToFile(bool adj, bool binary)
    meta_file << obs_steps << endl;        // <int> number of blocks
    meta_file << prefix << endl;        // <string> prefix for vector files
    meta_file << suffix << endl;        // <string> suffix for vector files (.txt or .h5)
+   if (adj)
+   {
+      meta_file << reverse_order << endl; // <bool> adj_vec written in block-reverse order
+   }
    meta_file.close();
    cout << "MetaToFile: done." << endl;
 }
@@ -493,19 +513,50 @@ void WaveParamToObs::FwdToFile(Vector **obs, bool binary)
                           H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
 
       // Write dataset
-      // TODO: write dataset chunks directly from vector data: tmp.Read() or tmp.GetData()
-      double *dset_data = new double[obs_steps*n_obs];
-      for (int k = 0; k < obs_steps; k++)
+      if (memcpy)
       {
-         Vector &tmp = *(obs[k]);
-         MFEM_VERIFY(tmp.Size() == n_obs,
-                     "Size of obs vector does not match.");
-         for (int i = 0; i < n_obs; i++)
+         // Copying sub-vectors into global vector; then write to dataset
+         double *dset_data = new double[obs_steps*n_obs];
+         for (int k = 0; k < obs_steps; k++)
          {
-            dset_data[k*n_obs+i] = tmp[i];
+            Vector &tmp = *(obs[k]);
+            MFEM_VERIFY(tmp.Size() == n_obs,
+                        "Size of obs vector does not match.");
+            for (int i = 0; i < n_obs; i++)
+            {
+               dset_data[k*n_obs+i] = tmp[i];
+            }
+         }
+         status = H5Dwrite(dset_id, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, dset_data);
+      }
+      else
+      {
+         // Writing sub-vectors directly to the dataset one-by-one
+         hsize_t offset = 0;
+         hsize_t count = n_obs;
+         hsize_t stride = 1;
+         hsize_t block = 1;
+         
+         // Select memory dataspace (same in each iteration)
+         hid_t memspace_id = H5Screate_simple(rank, &count, NULL);
+         
+         for (int k = 0; k < obs_steps; k++)
+         {
+            MFEM_VERIFY(obs[k]->Size() == n_obs,
+                        "Size of obs vector does not match.");
+            const double *dset_data = obs[k]->HostRead();
+            
+            // Select file dataspace
+            status = H5Sselect_hyperslab(dspace_id, H5S_SELECT_SET, &offset, &stride, &count, &block);
+            hssize_t numel = H5Sget_select_npoints(dspace_id);
+            MFEM_VERIFY(numel == n_obs, "Inconsistent number of elements");
+            
+            // Write sub-vector to dataset
+            status = H5Dwrite(dset_id, H5T_NATIVE_DOUBLE, memspace_id, dspace_id, H5P_DEFAULT, dset_data);
+            
+            offset += count;
          }
       }
-      H5Dwrite(dset_id, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, dset_data);
 
       // Close dataset
       status = H5Dclose(dset_id);
@@ -515,6 +566,7 @@ void WaveParamToObs::FwdToFile(Vector **obs, bool binary)
 
       // Close file
       status = H5Fclose(file_id);
+      if (status < 0) { MFEM_WARNING("H5Fclose < 0"); }
    }
    else
    {
@@ -585,19 +637,57 @@ void WaveParamToObs::AdjToFile(GridFunction **adj, bool binary)
                           H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
 
       // Write dataset
-      // TODO: write dataset chunks directly from vector data: tmp.Read() or tmp.GetData()
-      double *dset_data = new double[param_steps*n_param];
-      for (int k = 0; k < param_steps; k++)
+      if (memcpy)
       {
-         Vector &tmp = *(adj[k]);
-         MFEM_VERIFY(tmp.Size() == n_param,
-                     "Size of adj vector does not match.");
-         for (int i = 0; i < n_param; i++)
+         // Copying sub-vectors into global vector; then write to dataset
+         double *dset_data = new double[param_steps*n_param];
+         
+         for (int k = 0; k < param_steps; k++)
          {
-            dset_data[k*n_param+i] = tmp[i];
+            // FFT Matvec code expects sub-vectors in "block-reverse" order
+            int l = (reverse_order) ? param_steps-1-k : k;
+            
+            Vector &tmp = *(adj[l]);
+            MFEM_VERIFY(tmp.Size() == n_param,
+                        "Size of adj vector does not match.");
+            for (int i = 0; i < n_param; i++)
+            {
+               dset_data[k*n_param+i] = tmp[i];
+            }
+         }
+         status = H5Dwrite(dset_id, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, dset_data);
+      }
+      else
+      {
+         // Writing sub-vectors directly to the dataset one-by-one
+         hsize_t offset = 0;
+         hsize_t count = n_param;
+         hsize_t stride = 1;
+         hsize_t block = 1;
+         
+         // Select memory dataspace (same in each iteration)
+         hid_t memspace_id = H5Screate_simple(rank, &count, NULL);
+         
+         for (int k = 0; k < param_steps; k++)
+         {
+            // FFT Matvec code expects sub-vectors in "block-reverse" order
+            int l = (reverse_order) ? param_steps-1-k : k;
+            
+            MFEM_VERIFY(adj[l]->Size() == n_param,
+                        "Size of adj vector does not match.");
+            const double *dset_data = adj[l]->HostRead();
+            
+            // Select file dataspace
+            status = H5Sselect_hyperslab(dspace_id, H5S_SELECT_SET, &offset, &stride, &count, &block);
+            hssize_t numel = H5Sget_select_npoints(dspace_id);
+            MFEM_VERIFY(numel == n_param, "Inconsistent number of elements");
+            
+            // Write sub-vector to dataset
+            status = H5Dwrite(dset_id, H5T_NATIVE_DOUBLE, memspace_id, dspace_id, H5P_DEFAULT, dset_data);
+            
+            offset += count;
          }
       }
-      H5Dwrite(dset_id, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, dset_data);
 
       // Close dataset
       status = H5Dclose(dset_id);
@@ -607,6 +697,7 @@ void WaveParamToObs::AdjToFile(GridFunction **adj, bool binary)
 
       // Close file
       status = H5Fclose(file_id);
+      if (status < 0) { MFEM_WARNING("H5Fclose < 0"); }
    }
    else
    {
@@ -615,7 +706,9 @@ void WaveParamToObs::AdjToFile(GridFunction **adj, bool binary)
 
       for (int k = 0; k < param_steps; k++)
       {
-         GridFunction &tmp = *(adj[k]);
+         int l = (reverse_order) ? param_steps-1-k : k;
+         
+         GridFunction &tmp = *(adj[l]);
          MFEM_VERIFY(tmp.Size() == n_param,
                      "Size of adj vector does not match.");
          for (int i = 0; i < n_param; i++)
@@ -649,7 +742,7 @@ GridFunction** WaveParamToObs::ParamToGF(function<double(const Vector &, double)
 
 /// static method (copied from DataCollection::create_directory)
 int WaveParamToObs::CreateDirectory(const std::string &dir_name,
-                                    const Mesh *mesh, int myid)
+                                           const Mesh *mesh, int myid)
 {
    // create directories recursively
    const char path_delim = '/';

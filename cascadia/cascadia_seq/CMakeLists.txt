@@ -11,6 +11,6 @@
 
 add_mfem_miniapp(cascadia_seq
   MAIN cascadia_seq.cpp
-  EXTRA_HEADERS wave_map.hpp wave_obs.hpp wave_op.hpp wave_p2o.hpp wave_sol.hpp wave_vis.hpp cascadia.hpp sum_operator.hpp}
+  EXTRA_HEADERS wave_map.hpp wave_obs.hpp wave_op.hpp wave_p2o.hpp wave_prior.hpp wave_sol.hpp wave_vis.hpp cascadia.hpp sum_operator.hpp}
   LIBRARIES mfem)
 
