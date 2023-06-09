@@ -41,7 +41,7 @@ WavePrior::WavePrior(FiniteElementSpace &fes_m_,
    M = &(m_var->SpMat());
    M->PrintInfo(mfem::out);
    
-   cout << "Timer: Mass       matrix assembly (prior): " << chrono.RealTime() << " seconds." << endl;
+   cout << endl << "Timer: Mass       matrix assembly (prior): " << chrono.RealTime() << " seconds." << endl;
    chrono.Clear();
    
    // 2. Assemble FE stiffness matrix: alpha2(grad m, grad v)
@@ -83,6 +83,59 @@ WavePrior::WavePrior(FiniteElementSpace &fes_m_,
    }
 
    cout << "Timer: Space-time matrix assembly (prior): " << chrono.RealTime() << " seconds." << endl;
+   
+   // Specify whether PriorToFile re-indexes CSR matrix before
+   // writing to file, as is needed by the FFT matvec code
+   reindex = true;
+}
+
+SparseMatrix* WavePrior::ReindexCSR(const SparseMatrix *R) const
+{
+   const int size = R->Height();
+   const int nnz = R->NumNonZeroElems();
+   const int *R_I = R->GetI();
+   const int *R_J = R->GetJ();
+   const double *R_A = R->GetData();
+   
+   const int n_param = size/param_steps;
+   MFEM_VERIFY(size%param_steps==0,
+               "param_steps does not evenly divide matrix size.");
+   
+   // The original matrix R has the dof ordering:
+   // time steps (outer) -> space dofs (inner)
+   // number of blocks   = param_steps x param_steps
+   // size of each block = n_param x n_param
+   
+   // The new matrix has the dof ordering:
+   // space dofs (outer) -> time steps (inner)
+   // number of blocks   = n_param x n_param
+   // size of each block = param_steps x param_steps
+   
+   int *I = new int[size+1]; I[0] = 0;
+   int *J = new int[nnz];
+   double *A = new double[nnz];
+   
+   for (int i = 0; i < size; i++)
+   {
+      int r_i = (i % param_steps) * n_param + i / param_steps;
+      // start test
+      int ii = (r_i % n_param) * param_steps + r_i / n_param;
+      MFEM_VERIFY(i == ii, "i != ii"); // TODO: remove
+      // end test
+      int row_nnz = R_I[r_i+1] - R_I[r_i];
+      I[i+1] = I[i] + row_nnz;
+      
+      for (int k = 0; k < row_nnz; k++)
+      {
+         int r_l = R_I[r_i] + k;
+         int r_j = R_J[r_l];
+         int l = I[i] + k;
+         J[l] = (r_j % n_param) * param_steps + r_j / n_param;
+         A[l] = R_A[r_l];
+      }
+   }
+      
+   return new SparseMatrix(I, J, A, size, size);
 }
 
 void WavePrior::PriorToFile(bool binary)
@@ -94,7 +147,25 @@ void WavePrior::PriorToFile(bool binary)
    // note: copies memory internally
    chrono.Clear();
    SparseMatrix *R = B->CreateMonolithic();
-   cout << "Timer: Space-time csr matrix (prior)     : " << chrono.RealTime() << " seconds." << endl;
+   cout << "Timer: Creating csr matrix (prior)       : " << chrono.RealTime() << " seconds." << endl;
+   
+   // Re-index csr matrix (ordering of dofs)
+   if (reindex)
+   {
+      chrono.Clear();
+      SparseMatrix *S = ReindexCSR(R);
+      delete R;
+      R = S;
+      cout << "Timer: Re-indexing csr matrix (prior)    : " << chrono.RealTime() << " seconds." << endl;
+   }
+   
+   // Sort column indices (may be needed by FFT matvec code)
+   if (!(R->ColumnsAreSorted()))
+   {
+      chrono.Clear();
+      R->SortColumnIndices();
+      cout << "Timer: Sorting csr matrix columns (prior): " << chrono.RealTime() << " seconds." << endl;
+   }
    
    if (R->IsSymmetric() > 0.0) { MFEM_WARNING("R Matrix is not sym!"); }
    
@@ -122,6 +193,7 @@ void WavePrior::PriorToFile(bool binary)
    meta_file << alpha3->constant << endl;     // <double> (regularization parameter for |dm/dt|)
    meta_file << filename << endl;             // <string> filename for csr matrix file
    meta_file << suffix << endl;               // <string> suffix for csr matrix file (.txt or .h5)
+   meta_file << reindex << endl;              // <bool> specifies whether csr matrix was re-indexed
    meta_file.close();
    cout << "PriorToFile: done." << endl << endl;
    

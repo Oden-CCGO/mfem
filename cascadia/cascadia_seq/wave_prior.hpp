@@ -44,7 +44,12 @@ protected:
    const int type; // type of prior (1: Laplacian; 2: Bi-Laplacian)
    
    const int param_rate, param_steps; // parameter frequency; dt := time_step * param_rate
-
+   
+   bool reindex; // specifies whether PriorToFile re-indexes CSR matrix before
+                 // writing to file, as is needed by the FFT matvec code
+   
+   /// Reindex csr matrix dof ordering from time->space to space->time (outer->inner)
+   SparseMatrix* ReindexCSR(const SparseMatrix *R) const;
 public:
    WavePrior(FiniteElementSpace &fes_m_,
              int height_, int type_,
