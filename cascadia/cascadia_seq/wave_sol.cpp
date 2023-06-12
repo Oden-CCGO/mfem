@@ -420,6 +420,7 @@ void gNatural(const Vector &x, double t, Vector &g)
 double mParameter(const Vector &x, double t)
 {
    double m_load;
+   static bool init = false;
    // Unknown solution: boundary load given by parameter field m
    if (IsUnknown())
    {
@@ -434,7 +435,7 @@ double mParameter(const Vector &x, double t)
       double xi_c = (xmax-xmin)/2; // Rise center in x
       double yi_c = (ymax-ymin)/2; // Rise center in y
       
-      if (t==0)
+      if (!init)
       {
          cout << endl << "mParameter:" << endl;
          cout << " ar = " << ar << " m" << endl;
@@ -443,6 +444,7 @@ double mParameter(const Vector &x, double t)
          cout << " xi_c = " << xi_c << " km" << endl;
          cout << " yi_c = " << yi_c << " km" << endl;
          cout << " tr = " << tr << " s" << endl << endl;
+         init = true;
       }
       
       // Non-dimensionalize length scales

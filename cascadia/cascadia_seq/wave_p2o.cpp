@@ -112,11 +112,13 @@ void WaveParamToObs::GetObs(Vector** &obs) const
       paraview_dc = wave_vis.ParaviewDC();
       u_gf.MakeRef(wave_fwd->VelocityFESpace(), x.GetBlock(0), 0);
       p_gf.MakeRef(wave_fwd->PressureFESpace(), x.GetBlock(1), 0);
-      paraview_dc->RegisterField("velocity",&u_gf);
+      // paraview_dc->RegisterField("velocity",&u_gf);
       paraview_dc->RegisterField("pressure",&p_gf);
       paraview_dc->SetCycle(0);
       paraview_dc->SetTime(0.0);
+      chrono.Clear();
       paraview_dc->Save();
+      cout << endl << "p2o Mult: paraview I/O took " << chrono.RealTime() << " seconds." << endl;
    }
    
    // 5. Initialize ODE solver with forward wave operator
@@ -162,7 +164,7 @@ void WaveParamToObs::GetObs(Vector** &obs) const
          cout << "=========================================" << endl
               << "time step = " << k << ", t = " << t_dim << " s"   << endl
               << "=========================================" << endl;
-         if (k % 100 == 0)
+         if (k % 10 == 0)
          {
             cout << endl << " Time-stepping until now took " << chrono.RealTime() << " seconds." << endl;
             cout <<         " Average time/step until now: " << chrono.RealTime()/k << " seconds." << endl;
@@ -195,7 +197,7 @@ void WaveParamToObs::GetObs(Vector** &obs) const
    
    if (wave_vis.IsVis())
    {
-      paraview_dc->DeregisterField("velocity");
+      // paraview_dc->DeregisterField("velocity");
       paraview_dc->DeregisterField("pressure");
    }
    
@@ -316,11 +318,13 @@ void WaveParamToObs::GetAdj(GridFunction** &adj) const
       paraview_dc = wave_vis.ParaviewDC();
       u_gf.MakeRef(wave_adj->VelocityFESpace(), x.GetBlock(0), 0);
       p_gf.MakeRef(wave_adj->PressureFESpace(), x.GetBlock(1), 0);
-      paraview_dc->RegisterField("velocity_adj",&u_gf);
+      // paraview_dc->RegisterField("velocity_adj",&u_gf);
       paraview_dc->RegisterField("pressure_adj",&p_gf);
       paraview_dc->SetCycle(0);
       paraview_dc->SetTime(n_steps*dt * Cascadia::t0);
+      chrono.Clear();
       paraview_dc->Save();
+      cout << endl << "p2o MultTranspose: paraview I/O took " << chrono.RealTime() << " seconds." << endl;
    }
 
    // 5. Initialize ODE solver with adjoint wave operator
@@ -369,7 +373,7 @@ void WaveParamToObs::GetAdj(GridFunction** &adj) const
          cout << "=========================================" << endl
               << "time step = " << k << ", t = " << t_dim << " s"   << endl
               << "=========================================" << endl;
-         if (k % 100 == 0)
+         if (k % 10 == 0)
          {
             cout << endl << " Time-stepping until now took " << chrono.RealTime() << " seconds." << endl;
             cout <<         " Average time/step until now: " << chrono.RealTime()/k << " seconds." << endl;
@@ -409,7 +413,7 @@ void WaveParamToObs::GetAdj(GridFunction** &adj) const
    
    if (wave_vis.IsVis())
    {
-      paraview_dc->DeregisterField("velocity_adj");
+      // paraview_dc->DeregisterField("velocity_adj");
       paraview_dc->DeregisterField("pressure_adj");
    }
 }

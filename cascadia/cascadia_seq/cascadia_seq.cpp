@@ -197,7 +197,15 @@ int main(int argc, char *argv[])
       int nz = 1; double sz = 1.0;
       if (problem >= 100)
       {
-         sx = 8.0; sy = 8.0; sz = 4.0;
+         sx = 8.0; nx = 16; int xfac =  1;
+         sy = 8.0; ny = 16; int yfac =  2;
+         sz = 4.0; nz = 16;
+         sx *= xfac; nx *= xfac;
+         sy *= yfac; ny *= yfac;
+         cout << endl << "Initial mesh element dimensions:" << endl;
+         cout << "  sx/nx = " << (sx/nx)*(1000/Cascadia::l0) << " km" << endl;
+         cout << "  sy/ny = " << (sy/ny)*(1000/Cascadia::l0) << " km" << endl;
+         cout << "  sz/nz = " << (sz/nz)*(1000/Cascadia::l0) << " km" << endl;
       }
       mesh = new Mesh(Mesh::MakeCartesian3D(
                       nx, ny, nz, Element::HEXAHEDRON,
@@ -334,7 +342,7 @@ int main(int argc, char *argv[])
    GridFunction CG_gf(CG_space);
    
    // TEST: TransferMap: SubMesh<->Mesh (Parameter<->State)
-   bool test_transfer_maps = true;
+   bool test_transfer_maps = false;
    if (test_transfer_maps)
    {
       m_gf = 0; CG_gf = 0;
@@ -364,7 +372,8 @@ int main(int argc, char *argv[])
    
    // 6d. Create mappings between state space and data space:
    //     Map from pressure variable to pointwise observational data, and its transpose.
-   
+
+   MFEM_VERIFY(nx_obs > 1 && ny_obs > 1, "nx_obs, ny_obs");
    //     Set number of sensor locations
    const double xx_pts_min = 0.125*WaveSolution::xmax;
    const double xx_pts_max = 0.875*WaveSolution::xmax;
