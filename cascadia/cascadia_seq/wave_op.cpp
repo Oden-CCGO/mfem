@@ -183,6 +183,7 @@ WaveOperator::WaveOperator(FiniteElementSpace &fes_u_, FiniteElementSpace &fes_p
    // 6. Define time-dependent function coefficients for RHS
    //    and initialize the RHS block load vector
    rhs = new BlockVector(block_offsets); // TODO: add mem type
+   *rhs = 0.0;
    
    if (WaveSolution::IsKnown())
    {
