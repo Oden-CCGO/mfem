@@ -430,9 +430,20 @@ double mParameter(const Vector &x, double t)
       double ar = 0.1; // Rise amplitude [scale of m]
       double xr = 1.0; // Rise width in x [scale of km]
       double yr = 2.0; // Rise width in y [scale of km]
-      double tr = 1.0; // Rise time [scale of s]
+      double tr = 2.0; // Rise time [scale of s]
       double xi_c = (xmax-xmin)/2; // Rise center in x
       double yi_c = (ymax-ymin)/2; // Rise center in y
+      
+      if (t==0)
+      {
+         cout << endl << "mParameter:" << endl;
+         cout << " ar = " << ar << " m" << endl;
+         cout << " xr = " << xr << " km" << endl;
+         cout << " yr = " << yr << " km" << endl;
+         cout << " xi_c = " << xi_c << " km" << endl;
+         cout << " yi_c = " << yi_c << " km" << endl;
+         cout << " tr = " << tr << " s" << endl << endl;
+      }
       
       // Non-dimensionalize length scales
       ar /= Cascadia::l0;
@@ -440,7 +451,14 @@ double mParameter(const Vector &x, double t)
       yr *= (1000/Cascadia::l0);
       
       // Note: using dimensionalized time; function assumes tr in seconds
-      m_load = ar * exp(-pow((xi-xi_c)/xr,2)-pow((yi-yi_c)/yr,2)) * M_PI/(2*tr) * sin(M_PI*Cascadia::t0*t/tr);
+      if (t <= tr)
+      {
+         m_load = ar * exp(-pow((xi-xi_c)/xr,2)-pow((yi-yi_c)/yr,2)) * M_PI/(2*tr) * sin(M_PI*Cascadia::t0*t/tr);
+      }
+      else
+      {
+         m_load = 0;
+      }
       //       c2*m <-- c2*(db/dt) = c2*(-u_n)
       //       coefficient c2 is accounted for in assembling the load (UpdateLoad)
    }

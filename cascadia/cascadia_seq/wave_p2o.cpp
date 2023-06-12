@@ -162,6 +162,11 @@ void WaveParamToObs::GetObs(Vector** &obs) const
          cout << "=========================================" << endl
               << "time step = " << k << ", t = " << t_dim << " s"   << endl
               << "=========================================" << endl;
+         if (k % 100 == 0)
+         {
+            cout << endl << " Time-stepping until now took " << chrono.RealTime() << " seconds." << endl;
+            cout <<         " Average time/step until now: " << chrono.RealTime()/k << " seconds." << endl;
+         }
       }
       
       // Extract observations every "obs_rate"-th step
@@ -364,6 +369,11 @@ void WaveParamToObs::GetAdj(GridFunction** &adj) const
          cout << "=========================================" << endl
               << "time step = " << k << ", t = " << t_dim << " s"   << endl
               << "=========================================" << endl;
+         if (k % 100 == 0)
+         {
+            cout << endl << " Time-stepping until now took " << chrono.RealTime() << " seconds." << endl;
+            cout <<         " Average time/step until now: " << chrono.RealTime()/k << " seconds." << endl;
+         }
       }
       
       // Extract output every "param_rate"-th step
