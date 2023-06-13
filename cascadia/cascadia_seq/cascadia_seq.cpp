@@ -375,11 +375,11 @@ int main(int argc, char *argv[])
 
    MFEM_VERIFY(nx_obs > 1 && ny_obs > 1, "nx_obs, ny_obs");
    //     Set number of sensor locations
-   const double xx_pts_min = 0.125*WaveSolution::xmax;
-   const double xx_pts_max = 0.875*WaveSolution::xmax;
+   const double xx_pts_min = 0.25*WaveSolution::xmax;
+   const double xx_pts_max = 0.75*WaveSolution::xmax;
    const double xx_dist    = (xx_pts_max-xx_pts_min) / (nx_obs-1);
-   const double yy_pts_min = 0.125*WaveSolution::ymax;
-   const double yy_pts_max = 0.875*WaveSolution::ymax;
+   const double yy_pts_min = 0.25*WaveSolution::ymax;
+   const double yy_pts_max = 0.75*WaveSolution::ymax;
    const double yy_dist    = (yy_pts_max-yy_pts_min) / (ny_obs-1);
    const int n_obs = nx_obs*ny_obs; // number of observation points (sensors)
    
@@ -502,7 +502,8 @@ int main(int argc, char *argv[])
    }
    
    // 9. Create vis object
-   WaveVis wave_vis(mesh, visualization, vis_steps, order);
+   string wave_dc_name = "WaveSolution";
+   WaveVis wave_vis(mesh, visualization, vis_steps, order, wave_dc_name);
    
    // 10. Create p2o operator
    WaveParamToObs *wave_p2o = nullptr;
@@ -526,6 +527,27 @@ int main(int argc, char *argv[])
       cout << "Defining p2o fwd load (parameter) via time-dependent function." << endl << endl;
    }
    // END TEST
+   
+   // Write parameter to ParaView output
+   if (params && visualization)
+   {
+      cout << "Writing parameter field to paraview output..." << endl;
+      string param_dc_name = "Parameter";
+      WaveVis param_vis(bottom_mesh, visualization, vis_steps, order_m, param_dc_name);
+      
+      ParaViewDataCollection *param_dc = param_vis.ParaviewDC();
+      GridFunction *m_gf = nullptr;
+      double t = 0;
+      for (int k = 0; k < param_steps; k++)
+      {
+         m_gf = params[k];
+         param_dc->RegisterField("parameter", m_gf);
+         t = k*param_rate*dt;
+         param_dc->SetCycle(k*param_rate);
+         param_dc->SetTime(t * Cascadia::t0);
+         param_dc->Save();
+      }
+   }
    
    // 11a. Specify parameter (load) and call p2o map
    Vector **obs = nullptr;

@@ -106,7 +106,7 @@ void WaveParamToObs::GetObs(Vector** &obs) const
    if (wave_vis.IsVis())
    {
       ostringstream collection_oss;
-      collection_oss << "ForwardSeq_" << setfill('0') << setw(6) << vis_fwd++;
+      collection_oss << "WaveSolution_" << setfill('0') << setw(6) << vis_fwd++;
       string collection = collection_oss.str();
       wave_vis.NewCollection(collection, wave_fwd->PressureFESpace()->GetMesh());
       paraview_dc = wave_vis.ParaviewDC();
@@ -312,7 +312,7 @@ void WaveParamToObs::GetAdj(GridFunction** &adj) const
    if (wave_vis.IsVis())
    {
       ostringstream collection_oss;
-      collection_oss << "AdjointSeq_" << setfill('0') << setw(6) << vis_adj++;
+      collection_oss << "AdjointSolution_" << setfill('0') << setw(6) << vis_adj++;
       string collection = collection_oss.str();
       wave_vis.NewCollection(collection, wave_adj->PressureFESpace()->GetMesh());
       paraview_dc = wave_vis.ParaviewDC();
@@ -751,7 +751,7 @@ GridFunction** WaveParamToObs::ParamToGF(function<double(const Vector &, double)
 {
    MFEM_VERIFY(wave_fwd != nullptr, "No forward operator has been defined.");
    
-   GridFunction** params = new GridFunction*[n_steps];
+   GridFunction** params = new GridFunction*[param_steps];
    FunctionCoefficient coeff(TDF);
    double t = 0;
    for (int k = 0; k < param_steps; k++)

@@ -6,14 +6,14 @@ namespace mfem
 
 using namespace std;
 
-WaveVis::WaveVis(Mesh *mesh_, bool visualization_, int vis_steps_, int vis_order_)
+WaveVis::WaveVis(Mesh *mesh_, bool visualization_, int vis_steps_, int vis_order_,
+                 string &collection_name_)
    : visualization(visualization_), vis_steps(vis_steps_), vis_order(vis_order_),
      mesh(mesh_), paraview_dc(nullptr)
 {
    if (visualization)
    {
-      collection_name = "ForwardSeq";
-      NewCollection(collection_name, mesh);
+      NewCollection(collection_name_, mesh);
    }
 }
 

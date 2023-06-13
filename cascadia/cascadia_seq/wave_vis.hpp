@@ -27,7 +27,8 @@ protected:
    
    std::string collection_name;
 public:
-   WaveVis(Mesh *mesh_, bool visualization_, int vis_steps_, int vis_order_);
+   WaveVis(Mesh *mesh_, bool visualization_, int vis_steps_, int vis_order_,
+           std::string &collection_name_);
    
    /// Create a new DataCollection (deleting previous one if any)
    void NewCollection(std::string &collection_name_, Mesh *mesh_=nullptr);
