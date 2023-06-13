@@ -42,6 +42,9 @@ public:
    /// Get number of sensors
    int GetNrSensors() const { return n_obs; };
    
+   /// Get sensor coordinates
+   const DenseMatrix* GetSensorCoords() const { return &sensor_pts; };
+   
    ~WaveObservationOp() { };
 };
 

@@ -476,6 +476,16 @@ void WaveParamToObs::MetaToFile(bool adj, bool binary)
    {
       meta_file << reverse_order << endl; // <bool> adj_vec written in block-reverse order
    }
+   else
+   {
+      const int nr_sensors = wave_obs.GetNrSensors();
+      const DenseMatrix *sensors_pts = wave_obs.GetSensorCoords();
+      for (int i = 0; i < nr_sensors; i++)
+      {
+         meta_file << (*sensors_pts)(0,i) << endl;
+         meta_file << (*sensors_pts)(1,i) << endl;
+      }
+   }
    meta_file.close();
    cout << "MetaToFile: done." << endl;
 }
