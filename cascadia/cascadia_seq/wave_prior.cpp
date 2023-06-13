@@ -172,7 +172,7 @@ void WavePrior::PriorToFile(bool binary)
    // Create directory
    string prefix, suffix;
    
-   string rel_path = "./prior/";
+   string rel_path = WaveParamToObs::output_dir + "/prior/";
    string filename = "csr";
    if (binary) { rel_path += "binary"; suffix = ".h5"; }
    else        { rel_path += "text"; suffix = ".txt"; }

@@ -25,7 +25,8 @@ void WaveVis::NewCollection(string &collection_name_, Mesh *mesh_)
       if (mesh_) { mesh = mesh_; }
       collection_name = collection_name_;
       paraview_dc = new ParaViewDataCollection(collection_name, mesh);
-      paraview_dc->SetPrefixPath("ParaView");
+      string pv = WaveParamToObs::output_dir + "/ParaView";
+      paraview_dc->SetPrefixPath(pv);
       paraview_dc->SetLevelsOfDetail(vis_order);
       paraview_dc->SetDataFormat(VTKFormat::BINARY);
       paraview_dc->SetHighOrderOutput(true);

@@ -9,6 +9,9 @@
 mesh_file=false
 m='mesh_file'
 
+# Output directory
+d='output'
+
 # Problem instance (forward problem)
 #   1   - manufactured stationary solution (sine-wave)
 #   2   - manufactured stationary solution (linear polynomial)
@@ -34,13 +37,13 @@ fwd=0
 # 1: enable adjoint operator (one solve)
 # 2: use adjoint operator to export adjoint p2o map
 #    (number of solves ~ number of sensors)
-adj=2
+adj=0
 
 # Configure the prior (regularization)
 # 0: Do not assemble prior
 # 1: Laplacian prior (assemble + write to file)
 # 2: Bi-Laplacian prior (assemble + write to file)
-prior=0
+prior=1
 
 # Regularization parameters
 # alpha1 ~ |m|
@@ -69,13 +72,13 @@ ode=4
 lump=true
 
 # Number of uniform h-refinements
-ref=4
+ref=0
 
 # Final time
-tf=0.001
+tf=0.1
 
 # Number of time steps
-nt=5
+nt=10
 
 # Parameter is defined for every n-th time step
 # - only used for unknown solution
@@ -89,7 +92,7 @@ param_rate=1
 obs_rate=1
 
 # Number of observers in x,y direction (uniformly placed)
-nx_obs=3
+nx_obs=2
 ny_obs=3
 
 # Specify format for output data
@@ -98,16 +101,16 @@ ny_obs=3
 hdf=true
 
 # Enable/disable writing observations (fwd/adj output)
-obs=false
+obs=true
 
 # Enable/disable writing paraview vis files
-vis=false
+vis=true
 
 # If vis files enabled, every n-th step they are written
 vs=5
 
 # Configure program arguments
-args=" -p ${p} -fwd ${fwd} -adj ${adj}"
+args=" -d ${d} -p ${p} -fwd ${fwd} -adj ${adj}"
 args+=" -prior ${prior} -alpha1 ${alpha1} -alpha2 ${alpha2} -alpha3 ${alpha3}"
 args+=" -o ${o} -ode ${ode} -ref ${ref}"
 args+=" -tf ${tf} -nt ${nt}"

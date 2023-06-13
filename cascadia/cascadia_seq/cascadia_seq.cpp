@@ -58,6 +58,7 @@ int main(int argc, char *argv[])
 
    // 1. Parse command-line options.
    const char *mesh_file = "";
+   const char *output_dir = ".";
    int problem = 1;
    int fwd = 1;
    int adj = 0;
@@ -85,6 +86,8 @@ int main(int argc, char *argv[])
    OptionsParser args(argc, argv);
    args.AddOption(&mesh_file, "-m", "--mesh",
                   "Mesh file to use.");
+   args.AddOption(&output_dir, "-d", "--directory",
+                  "Relative path of output directory for I/O.");
    args.AddOption(&problem, "-p", "--problem",
                   "Problem: 1   - known stationary solution: sine-wave,\n\t"
                   "         2   - known stationary solution: lin polynomial,\n\t"
@@ -164,6 +167,8 @@ int main(int argc, char *argv[])
    WaveSolution::t_final = t_final;
    WaveSolution::n_steps = n_steps;
    WaveSolution::dt = t_final/n_steps;
+   
+   WaveParamToObs::output_dir = output_dir;
    
    // Checks for param_rate, obs_rate
    MFEM_VERIFY(n_steps % param_rate == 0,
@@ -309,7 +314,8 @@ int main(int argc, char *argv[])
       ConstantCoefficient one(1.0);
       xyz.ProjectBdrCoefficient(one, bottom_bdr);
       ParaViewDataCollection paraview_dc_bm("ForwardSeqBM", mesh);
-      paraview_dc_bm.SetPrefixPath("ParaView");
+      string pv = WaveParamToObs::output_dir + "/ParaView";
+      paraview_dc_bm.SetPrefixPath(pv);
       paraview_dc_bm.SetLevelsOfDetail(1);
       paraview_dc_bm.SetDataFormat(VTKFormat::BINARY);
       paraview_dc_bm.RegisterField("pressure",&xyz);
@@ -351,7 +357,8 @@ int main(int argc, char *argv[])
       wave_map.StateToParam(CG_gf, m_gf);
       
       ParaViewDataCollection paraview_dc_sub("ForwardSeq_SubMesh", bottom_mesh);
-      paraview_dc_sub.SetPrefixPath("ParaView");
+      string pv = WaveParamToObs::output_dir + "/ParaView";
+      paraview_dc_sub.SetPrefixPath(pv);
       paraview_dc_sub.SetLevelsOfDetail(1);
       paraview_dc_sub.SetDataFormat(VTKFormat::BINARY);
       paraview_dc_sub.RegisterField("parameter",&m_gf);
@@ -362,7 +369,7 @@ int main(int argc, char *argv[])
       wave_map.ParamToState(m_gf, CG_gf);
       
       ParaViewDataCollection paraview_dc_mesh("ForwardSeq_Mesh", mesh);
-      paraview_dc_mesh.SetPrefixPath("ParaView");
+      paraview_dc_mesh.SetPrefixPath(pv);
       paraview_dc_mesh.SetLevelsOfDetail(1);
       paraview_dc_mesh.SetDataFormat(VTKFormat::BINARY);
       paraview_dc_mesh.RegisterField("pressure",&CG_gf);

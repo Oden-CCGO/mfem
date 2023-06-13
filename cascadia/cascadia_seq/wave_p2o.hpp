@@ -85,6 +85,9 @@ public:
    /// Project a TD function onto GridFunctions for each time step
    GridFunction** ParamToGF(std::function<double(const Vector &, double)> TDF) const;
    
+   /// Relative path to parent folder for all outputs
+   static std::string output_dir;
+   
    /// Helper function
    static int CreateDirectory(const std::string &dir_name,
                               const Mesh *mesh, int myid);

@@ -190,17 +190,16 @@ if [ "$mesh_file" = true ] ; then
    args+=" -m ${m}"
 fi
 
-# Run program
-ibrun ./cascadia_seq ${args}
-
-
-#
-# set output
+# Set output directory
 mkdir ${SLURM_JOB_ID}
 cd ${SLURM_JOB_ID}
-mkdir outputs
+mkdir output
 cd ..
-dir_output="${SLURM_JOB_ID}/outputs/"
+d="${SLURM_JOB_ID}/output"
+args+=" -d ${d}"
+
+# Run program
+ibrun ./cascadia_seq ${args}
 
 date
 # ---------------------------------------------------

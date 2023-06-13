@@ -14,6 +14,8 @@ namespace mfem
 
 using namespace std;
 
+string WaveParamToObs::output_dir = ".";
+
 WaveParamToObs::WaveParamToObs(WaveOperator *wave_fwd_, WaveOperator *wave_adj_,
                                WaveObservationOp &wave_obs_, WaveTransferMap &wave_map_,
                                WaveVis &wave_vis_,
@@ -436,7 +438,7 @@ void WaveParamToObs::MetaToFile(bool adj, bool binary)
 {
    string prefix, suffix;
    
-   rel_path = "./p2o/";
+   rel_path = output_dir + "/p2o/";
    if (binary) { rel_path += "binary/"; suffix = ".h5"; }
    else        { rel_path += "text/"; suffix = ".txt"; }
    
@@ -766,7 +768,7 @@ GridFunction** WaveParamToObs::ParamToGF(function<double(const Vector &, double)
 
 /// static method (copied from DataCollection::create_directory)
 int WaveParamToObs::CreateDirectory(const std::string &dir_name,
-                                           const Mesh *mesh, int myid)
+                                    const Mesh *mesh, int myid)
 {
    // create directories recursively
    const char path_delim = '/';
