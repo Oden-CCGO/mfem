@@ -30,7 +30,7 @@ p=100
 # 1: enable forward operator (one solve)
 # 2: use forward operator to export p2o map
 #    (number of solves ~ number of parameters)
-fwd=0
+fwd=1
 
 # Configure adjoint solve
 # 0: disable adjoint operator
@@ -40,18 +40,20 @@ fwd=0
 adj=0
 
 # Configure the prior (regularization)
-# 0: Do not assemble prior
-# 1: Laplacian prior (assemble + write to file)
-# 2: Bi-Laplacian prior (assemble + write to file)
-prior=1
+#  0: Do not assemble prior
+#  1: Laplacian prior (assemble)
+# 11: Laplacian prior (assemble + write to file)
+#  2: Bi-Laplacian prior (assemble)
+# 22: Bi-Laplacian prior (assemble + write to file)
+prior=0
 
 # Regularization parameters
 # alpha1 ~ |m|
 # alpha2 ~ |grad m|
 # alpha3 ~ |dm/dt|
-alpha1=1.0
-alpha2=1.0
-alpha3=0.0
+alpha1=1.0e6
+alpha2=1.0e6
+alpha3=1.0e2
 
 # Polynomial order of approximation
 #   order_p = o   (scalar-valued H1 pressure space)

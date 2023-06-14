@@ -31,6 +31,9 @@ protected:
    SparseMatrix *K;     // stiffness matrix (fe space)
    BilinearForm *k_var; // variational form (fe space)
    
+   SparseMatrix *C; // sparse matrix (auxiliary)
+   SparseMatrix *L; // sparse matrix (auxiliary)
+   
    SparseMatrix *D; // sparse matrix (auxiliary)
    BlockMatrix *B;  // sparse matrix (space/time)
    
@@ -43,6 +46,7 @@ protected:
    
    const int type; // type of prior (1: Laplacian; 2: Bi-Laplacian)
    
+   const double time_step, dt;
    const int param_rate, param_steps; // parameter frequency; dt := time_step * param_rate
    
    bool reindex; // specifies whether PriorToFile re-indexes CSR matrix before
@@ -53,13 +57,17 @@ protected:
 public:
    WavePrior(FiniteElementSpace &fes_m_,
              int height_, int type_,
-             int param_rate_, int param_steps_,
+             double time_step_, int param_rate_, int param_steps_,
              double alpha1_=1.0, double alpha2_=1.0, double alpha3_=0.0);
 
-   virtual void Mult(const Vector &up, Vector &dup_dt) const
-   {
-      MFEM_ABORT("WavePrior::Mult is not implemented");
-   }
+   virtual void Mult(const Vector &x, Vector &y) const ;
+   
+   /// Apply first part of prior/regularization only - alpha1
+   virtual void MultReg1(const Vector &x, Vector &y) const ;
+   /// Apply second part of prior/regularization only - alpha2
+   virtual void MultReg2(const Vector &x, Vector &y) const ;
+   /// Apply third part of prior/regularization only - alpha3
+   virtual void MultReg3(const Vector &x, Vector &y) const ;
    
    /// Write prior as a csr matrix to file
    void PriorToFile(bool binary=false);

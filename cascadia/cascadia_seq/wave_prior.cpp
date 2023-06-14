@@ -9,14 +9,15 @@ using namespace std;
 
 WavePrior::WavePrior(FiniteElementSpace &fes_m_,
                      int height_, int type_,
-                     int param_rate_, int param_steps_,
+                     double time_step_, int param_rate_, int param_steps_,
                      double alpha1_, double alpha2_, double alpha3_)
    : Operator(height_, 0.0),
      fes_m(fes_m_),
      M(nullptr), m_var(nullptr), K(nullptr), k_var(nullptr),
-     D(nullptr), B(nullptr), block_offsets(param_steps_+1),
+     D(nullptr), C(nullptr), L(nullptr), B(nullptr), block_offsets(param_steps_+1),
      alpha1(nullptr), alpha2(nullptr), alpha3(nullptr),
-     type(type_), param_rate(param_rate_), param_steps(param_steps_)
+     type(type_), time_step(time_step_), dt(time_step_*param_rate_),
+     param_rate(param_rate_), param_steps(param_steps_)
 {
    StopWatch chrono;
    chrono.Start();
@@ -27,7 +28,6 @@ WavePrior::WavePrior(FiniteElementSpace &fes_m_,
    MFEM_VERIFY(alpha1_>=0.0, "alpha1 < 0.");
    MFEM_VERIFY(alpha2_>=0.0, "alpha2 < 0.");
    MFEM_VERIFY(alpha3_>=0.0, "alpha3 < 0.");
-   MFEM_VERIFY(alpha3_==0.0, "alpha3 > 0 not yet implemented.");
    
    alpha1 = new ConstantCoefficient(alpha1_);
    alpha2 = new ConstantCoefficient(alpha2_);
@@ -39,9 +39,10 @@ WavePrior::WavePrior(FiniteElementSpace &fes_m_,
    m_var->Assemble();
    m_var->Finalize();
    M = &(m_var->SpMat());
-   M->PrintInfo(mfem::out);
+//   M->PrintInfo(mfem::out);
    
-   cout << endl << "Timer: Mass       matrix assembly (prior): " << chrono.RealTime() << " seconds." << endl;
+   cout << endl << "Timer: Mass       matrix assembly (prior): "
+        << chrono.RealTime() << " seconds." << endl;
    chrono.Clear();
    
    // 2. Assemble FE stiffness matrix: alpha2(grad m, grad v)
@@ -50,9 +51,16 @@ WavePrior::WavePrior(FiniteElementSpace &fes_m_,
    k_var->Assemble();
    k_var->Finalize();
    K = &(k_var->SpMat());
-   K->PrintInfo(mfem::out);
+//   K->PrintInfo(mfem::out);
    
-   cout << "Timer: Stiffness  matrix assembly (prior): " << chrono.RealTime() << " seconds." << endl;
+   if (M->NumNonZeroElems() != K->NumNonZeroElems())
+   {
+      MFEM_WARNING("  M->NumNonZeroElems() = " << M->NumNonZeroElems() <<
+                   ", K->NumNonZeroElems() = " << K->NumNonZeroElems());
+   }
+   
+   cout << "Timer: Stiffness  matrix assembly (prior): "
+        << chrono.RealTime() << " seconds." << endl;
    chrono.Clear();
 
    // 3. Assemble space-time prior (reg matrix)
@@ -62,6 +70,13 @@ WavePrior::WavePrior(FiniteElementSpace &fes_m_,
    //          | 0    M+K 0   0   |
    //          | 0    0   M+K 0   |
    //          | 0    0   0   M+K |
+   
+   //    If alpha3 > 0, then R is Block-Tri-Diagonal
+   //      R = | C   L   0   0 |
+   //          | L   D   L   0 |
+   //          | 0   L   D   L |
+   //          | 0   0   L   C |
+   //      where D := M+K+C
    
    // 3a. create block offset array
    const int nr_params = fes_m.GetVSize();
@@ -75,18 +90,134 @@ WavePrior::WavePrior(FiniteElementSpace &fes_m_,
    // 3b. create abstract block matrix and set blocks
    B = new BlockMatrix(block_offsets);
    
-   D = new SparseMatrix(*M); *D += *K; // create sparse matrix for diagonal blocks
-   for (int i = 0; i < param_steps; i++)
+   if (alpha3_ > 0)
    {
-      // set diagonal blocks
-      B->SetBlock(i, i, D);
+      C = new SparseMatrix(*M);
+      *C *= 2*(alpha3_/alpha1_)/(dt*dt);
+   
+      L = new SparseMatrix(*M);
+      *L *= -(alpha3_/alpha1_)/(dt*dt);
+      
+      D = new SparseMatrix(*M);
+      *D += *K;
+      *D += *C;
+      
+      for (int i = 1; i < param_steps-1; i++)
+      {
+         B->SetBlock(i, i  , D); // diag block
+         B->SetBlock(i, i-1, L); // left block
+         B->SetBlock(i, i+1, L); // right block
+      }
+      // Set first row block (behaves as if a zero Dir.BC is to the left)
+      B->SetBlock(0, 0, C);
+      B->SetBlock(0, 1, L);
+      
+      // Set last row block (behaves as if a zero Dir.BC is to the right)
+      int i = param_steps-1;
+      B->SetBlock(i, i  , C);
+      B->SetBlock(i, i-1, L);
+   }
+   else
+   {
+      D = new SparseMatrix(*M);
+      *D += *K;
+      
+      for (int i = 0; i < param_steps; i++)
+      {
+         // set diagonal blocks
+         B->SetBlock(i, i, D);
+      }
    }
 
-   cout << "Timer: Space-time matrix assembly (prior): " << chrono.RealTime() << " seconds." << endl;
+   cout << "Timer: Space-time matrix assembly (prior): "
+        << chrono.RealTime() << " seconds." << endl;
    
    // Specify whether PriorToFile re-indexes CSR matrix before
    // writing to file, as is needed by the FFT matvec code
    reindex = true;
+}
+
+void WavePrior::Mult(const Vector &x, Vector &y) const
+{
+   B->Mult(x, y);
+}
+
+void WavePrior::MultReg1(const Vector &x, Vector &y) const
+{
+   if (!(alpha1->constant > 0))
+   {
+      MFEM_WARNING("! (alpha1 > 0)");
+      y = 0.0;
+      return;
+   }
+   
+   BlockMatrix A(block_offsets);
+   for (int i = 1; i < param_steps-1; i++)
+   {
+      A.SetBlock(i, i, M);
+   }
+   
+   if (!(alpha3->constant > 0))
+   {
+      A.SetBlock(0, 0, M);
+      int i = param_steps-1;
+      A.SetBlock(i, i, M);
+   }
+   
+   A.Mult(x, y);
+}
+
+void WavePrior::MultReg2(const Vector &x, Vector &y) const
+{
+   if (!(alpha2->constant > 0))
+   {
+      MFEM_WARNING("! (alpha2 > 0)");
+      y = 0.0;
+      return;
+   }
+   
+   BlockMatrix A(block_offsets);
+   for (int i = 1; i < param_steps-1; i++)
+   {
+      A.SetBlock(i, i, K);
+   }
+   
+   if (!(alpha3->constant > 0))
+   {
+      A.SetBlock(0, 0, K);
+      int i = param_steps-1;
+      A.SetBlock(i, i, K);
+   }
+   
+   A.Mult(x, y);
+}
+
+void WavePrior::MultReg3(const Vector &x, Vector &y) const
+{
+   if (!(alpha3->constant > 0))
+   {
+      MFEM_WARNING("! (alpha3 > 0)");
+      y = 0.0;
+      return;
+   }
+   
+   BlockMatrix A(block_offsets);
+   for (int i = 1; i < param_steps-1; i++)
+   {
+      A.SetBlock(i, i  , C); // diag block
+      A.SetBlock(i, i-1, L); // left block
+      A.SetBlock(i, i+1, L); // right block
+   }
+   // Set first row block (behaves as if a zero Dir.BC is to the left)
+   A.SetBlock(0, 0, C);
+   A.SetBlock(0, 1, L);
+   
+   // Set last row block (behaves as if a zero Dir.BC is to the right)
+   int i = param_steps-1;
+   A.SetBlock(i, i  , C);
+   A.SetBlock(i, i-1, L);
+   
+   A.Mult(x, y);
 }
 
 SparseMatrix* WavePrior::ReindexCSR(const SparseMatrix *R) const
@@ -172,12 +303,12 @@ void WavePrior::PriorToFile(bool binary)
    // Create directory
    string prefix, suffix;
    
-   string rel_path = WaveParamToObs::output_dir + "/prior/";
+   string rel_path = WaveIO::output_dir + "/prior/";
    string filename = "csr";
    if (binary) { rel_path += "binary"; suffix = ".h5"; }
    else        { rel_path += "text"; suffix = ".txt"; }
    
-   WaveParamToObs::CreateDirectory(rel_path, nullptr, 0);
+   WaveIO::CreateDirectory(rel_path, nullptr, 0);
    
    // Write meta file with info about prior
    string meta_filename = rel_path + "/meta_prior";
@@ -288,7 +419,9 @@ WavePrior::~WavePrior()
 {
    delete m_var;
    delete k_var;
-
+   
+   delete C;
+   delete L;
    delete D;
    delete B;
    

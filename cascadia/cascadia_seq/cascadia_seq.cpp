@@ -109,8 +109,10 @@ int main(int argc, char *argv[])
                   "               2 - Use adjoint operator to export adjoint p2o map.");
    args.AddOption(&prior, "-prior", "--prior",
                   "Prior: 0 - Do not assemble prior,\n\t"
-                  "       1 - Laplacian prior (assemble + write to file),\n\t"
-                  "       2 - Bi-Laplacian prior (assemble + write to file).");
+                  "       1 - Laplacian prior (assemble),\n\t"
+                  "      11 - Laplacian prior (assemble + write to file),\n\t"
+                  "       2 - Bi-Laplacian prior (assemble),\n\t"
+                  "      22 - Bi-Laplacian prior (assemble + write to file).");
    args.AddOption(&alpha1, "-alpha1", "--alpha1",
                   "Regularization parameter for scaling |m|.");
    args.AddOption(&alpha2, "-alpha2", "--alpha2",
@@ -168,7 +170,7 @@ int main(int argc, char *argv[])
    WaveSolution::n_steps = n_steps;
    WaveSolution::dt = t_final/n_steps;
    
-   WaveParamToObs::output_dir = output_dir;
+   WaveIO::output_dir = output_dir;
    
    // Checks for param_rate, obs_rate
    MFEM_VERIFY(n_steps % param_rate == 0,
@@ -314,7 +316,7 @@ int main(int argc, char *argv[])
       ConstantCoefficient one(1.0);
       xyz.ProjectBdrCoefficient(one, bottom_bdr);
       ParaViewDataCollection paraview_dc_bm("ForwardSeqBM", mesh);
-      string pv = WaveParamToObs::output_dir + "/ParaView";
+      string pv = WaveIO::output_dir + "/ParaView";
       paraview_dc_bm.SetPrefixPath(pv);
       paraview_dc_bm.SetLevelsOfDetail(1);
       paraview_dc_bm.SetDataFormat(VTKFormat::BINARY);
@@ -340,6 +342,7 @@ int main(int argc, char *argv[])
    cout << "param_space->GetVSize()     = " << param_space->GetVSize()     << endl;
    cout << "param_space->GetTrueVSize() = " << param_space->GetTrueVSize() << endl;
    cout << "++++++++++++++++++++++++++++++" << endl;
+   const int n_param = param_space->GetVSize();
    
    //     Define transfer operators between H1 GridFunctions on Mesh and SubMesh
    WaveTransferMap wave_map(*CG_space, *param_space);
@@ -357,7 +360,7 @@ int main(int argc, char *argv[])
       wave_map.StateToParam(CG_gf, m_gf);
       
       ParaViewDataCollection paraview_dc_sub("ForwardSeq_SubMesh", bottom_mesh);
-      string pv = WaveParamToObs::output_dir + "/ParaView";
+      string pv = WaveIO::output_dir + "/ParaView";
       paraview_dc_sub.SetPrefixPath(pv);
       paraview_dc_sub.SetLevelsOfDetail(1);
       paraview_dc_sub.SetDataFormat(VTKFormat::BINARY);
@@ -512,13 +515,17 @@ int main(int argc, char *argv[])
    string wave_dc_name = "WaveSolution";
    WaveVis wave_vis(mesh, visualization, vis_steps, order, wave_dc_name);
    
-   // 10. Create p2o operator
+   // 10a. Create p2o operator
    WaveParamToObs *wave_p2o = nullptr;
    if (wave_fwd || wave_adj)
    {
       wave_p2o = new WaveParamToObs(wave_fwd, wave_adj, wave_obs, wave_map, wave_vis,
                                     *ode_solver, n_steps, dt);
    }
+   
+   // 10b. Create I/O object
+   WaveIO wave_io(param_space, wave_obs, n_steps, dt,
+                  n_param, n_obs, param_rate, obs_rate, hdf);
    
    // TEST: Create loads for all time-steps using GridFunctionCoefficients
    //       -> only used for unknown solutions
@@ -583,7 +590,36 @@ int main(int argc, char *argv[])
       // 11b. Write observations to file
       if (observations)
       {
-         wave_p2o->FwdToFile(obs, hdf);
+         wave_io.FwdToFile(obs);
+      }
+      
+      bool test_obs_io = true; // unit test
+      if (test_obs_io)
+      {
+         string filename(output_dir);
+         filename += (hdf) ? "/obs_vec.h5" : "/obs_vec.txt";
+         
+         // Write observations to file
+         wave_io.ObsToFile(filename, obs);
+         
+         // Read observations from file
+         Vector **obs_in = wave_io.ObsFromFile(filename);
+         
+         for (int k = 0; k < obs_steps; k++)
+         {
+            Vector &o_out = *obs[k];
+            Vector &o_in = *obs_in[k];
+            //cout << endl << "obs step k = " << k << endl;
+            for (int i = 0; i < n_obs; i++)
+            {
+               //cout << "o_out[" << i << "] = " << o_out[i] << endl;
+               //cout << "o_in [" << i << "] = " << o_in[i] << endl;
+               MFEM_VERIFY(abs(o_out[i]-o_in[i]) < 1.0e-12, "o_out != o_in");
+            }
+         }
+         
+         for (int k = 0; k < obs_steps; k++) { delete obs_in[k]; obs_in[k] = nullptr; }
+         delete obs_in; obs_in = nullptr;
       }
    }
    else if (fwd == 2)
@@ -602,7 +638,6 @@ int main(int argc, char *argv[])
          params[k] = new GridFunction(param_space);
          *(params[k]) = 0.0;
       }
-      const int n_param = param_space->GetVSize();
 
       // Activate one nodal dof (one parameter) at a time
       // to obtain one column of p2o map
@@ -617,7 +652,7 @@ int main(int argc, char *argv[])
             // yielding the (k*n_param+j)-th column of the p2o map
             (*(params[k]))[j] = 1.0;
             wave_p2o->Mult(params, obs);
-            wave_p2o->FwdToFile(obs, hdf);
+            wave_io.FwdToFile(obs);
             wave_fwd->ResetLoad();
             (*(params[k]))[j] = 0.0;
          }
@@ -650,7 +685,7 @@ int main(int argc, char *argv[])
       // 12b. Write adjoint output to file
       if (observations)
       {
-         wave_p2o->AdjToFile(adj_gf, hdf);
+         wave_io.AdjToFile(adj_gf);
       }
    }
    else if (adj == 2)
@@ -681,7 +716,7 @@ int main(int argc, char *argv[])
             // yielding the j-th column of the last column block of adjoint p2o map
             (*(data[k]))[j] = 1.0; // TODO: testing
             wave_p2o->MultTranspose(data, adj_gf);
-            wave_p2o->AdjToFile(adj_gf, hdf);
+            wave_io.AdjToFile(adj_gf);
             wave_adj->ResetLoad();
             (*(data[k]))[j] = 0.0;
          }
@@ -689,15 +724,123 @@ int main(int argc, char *argv[])
       cout << endl << m*n_obs << " adjoint solves took " << chrono.RealTime() << " seconds." << endl;
    }
    
-   MFEM_VERIFY(prior != 2, "Bi-Laplacian Prior not yet implemented.");
+   // 13. Prior
+   int prior_type = prior%10;
+   MFEM_VERIFY(prior_type <= 1, "Bi-Laplacian Prior not yet implemented.");
    if (prior)
    {
-      height = param_space->GetVSize() * param_steps;
+      height = n_param * param_steps;
       WavePrior wave_prior(*param_space,
-                           height, prior,
-                           param_rate, param_steps,
+                           height, prior_type,
+                           dt, param_rate, param_steps,
                            alpha1, alpha2, alpha3);
-      wave_prior.PriorToFile(hdf);
+      
+      // Create global prior CSR matrix and write to file
+      if (prior > 10)
+      {
+         wave_prior.PriorToFile(hdf);
+      }
+      
+      // Compute regularization part of cost functional
+      Vector param_vec(height);
+      if (params)
+      {
+         // Use previously defined parameter GridFunctions
+         int offset = 0;
+         for (int k = 0; k < param_steps; k++)
+         {
+            param_vec.SetVector(*(params[k]), offset);
+            offset += n_param;
+         }
+      }
+      else
+      {
+         // Create parameter vector
+         FunctionCoefficient param_coeff(WaveSolution::mParameter);
+         GridFunction param_gf(param_space);
+         double t = 0;
+         int offset = 0;
+         for (int k = 0; k < param_steps; k++)
+         {
+            t = k*param_rate*dt;
+            param_coeff.SetTime(t);
+            param_gf.ProjectCoefficient(param_coeff);
+            param_vec.SetVector(param_gf, offset);
+            offset += n_param;
+         }
+      }
+      Vector reg_vec(height);
+      wave_prior.Mult(param_vec, reg_vec);
+      
+      double reg_val = InnerProduct(param_vec, reg_vec);
+      
+      wave_prior.MultReg1(param_vec, reg_vec);
+      double r1 = InnerProduct(param_vec, reg_vec);
+      
+      wave_prior.MultReg2(param_vec, reg_vec);
+      double r2 = InnerProduct(param_vec, reg_vec);
+      
+      wave_prior.MultReg3(param_vec, reg_vec);
+      double r3 = InnerProduct(param_vec, reg_vec);
+      
+      double reg_sum = r1 + r2 + r3;
+      
+      cout << endl << "Regularization part of cost functional:" << endl;
+      cout << "  alpha1 = " << alpha1  << endl;
+      cout << "  alpha2 = " << alpha2  << endl;
+      cout << "  alpha3 = " << alpha3  << endl;
+      cout << " reg_val = " << reg_val << endl;
+      cout << "      r1 = " <<      r1 << endl;
+      cout << "      r2 = " <<      r2 << endl;
+      cout << "      r3 = " <<      r3 << endl;
+      cout << " reg_sum = " << reg_sum << endl;
+      
+      // TESTING PARAM I/O
+      bool test_param_io = true; // unit test
+      if (test_param_io)
+      {
+         // Make sure params has been initialized as GridFunction**
+         if (!params)
+         {
+            params = new GridFunction*[param_steps];
+            for (int k = 0; k < param_steps; k++)
+            {
+               params[k] = new GridFunction(param_space);
+               *(params[k]) = 0.0;
+            }
+            int offset = 0;
+            for (int k = 0; k < param_steps; k++)
+            {
+               params[k]->MakeRef(param_vec, offset, n_param);
+               offset += n_param;
+            }
+         }
+         
+         string filename(output_dir);
+         filename += (hdf) ? "/param_vec.h5" : "/param_vec.txt";
+         
+         // Write params to file
+         wave_io.ParamToFile(filename, params);
+         
+         // Read params from file
+         GridFunction **params_in = wave_io.ParamFromFile(filename);
+         
+         for (int k = 0; k < param_steps; k++)
+         {
+            Vector &p_out = *params[k];
+            Vector &p_in = *params_in[k];
+            //cout << endl << "param step k = " << k << endl;
+            for (int i = 0; i < n_param; i++)
+            {
+               //cout << "params_out[" << i << "] = " << p_out[i] << endl;
+               //cout << "params_in [" << i << "] = " << p_in[i] << endl;
+               MFEM_VERIFY(abs(p_out[i]-p_in[i]) < 1.0e-12, "p_out != p_in");
+            }
+         }
+         
+         for (int k = 0; k < param_steps; k++) { delete params_in[k]; params_in[k] = nullptr; }
+         delete params_in; params_in = nullptr;
+      }
    }
 
    // 14. Free the used memory.

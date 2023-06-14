@@ -90,9 +90,11 @@ fwd=1
 adj=0
 
 # Configure the prior (regularization)
-# 0: Do not assemble prior
-# 1: Laplacian prior (assemble + write to file)
-# 2: Bi-Laplacian prior (assemble + write to file)
+#  0: Do not assemble prior
+#  1: Laplacian prior (assemble)
+# 11: Laplacian prior (assemble + write to file)
+#  2: Bi-Laplacian prior (assemble)
+# 22: Bi-Laplacian prior (assemble + write to file)
 prior=0
 
 # Regularization parameters
