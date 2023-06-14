@@ -9,6 +9,7 @@
 #include "wave_map.hpp"
 #include "wave_obs.hpp"
 #include "wave_op.hpp"
+#include "wave_io.hpp"
 #include "wave_vis.hpp"
 #include "wave_prior.hpp"
 #include "wave_p2o.hpp"
