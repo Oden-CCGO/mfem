@@ -189,18 +189,30 @@ void WaveIO::ObsToFile(const std::string &filename, Vector **obs,
       status = H5Awrite(attr_id, H5T_NATIVE_INT, &obs_steps);
       status = H5Aclose(attr_id);
       
-      // - Attribute 2: n_obs
+      // - Attribute 2: dt
+      attr_id = H5Acreate(dset_id, "dt", H5T_NATIVE_DOUBLE,
+                          attr_dspace_id, H5P_DEFAULT, H5P_DEFAULT);
+      status = H5Awrite(attr_id, H5T_NATIVE_DOUBLE, &dt);
+      status = H5Aclose(attr_id);
+      
+      // - Attribute 3: obs_rate
+      attr_id = H5Acreate(dset_id, "obs_rate", H5T_NATIVE_INT,
+                          attr_dspace_id, H5P_DEFAULT, H5P_DEFAULT);
+      status = H5Awrite(attr_id, H5T_NATIVE_INT, &obs_rate);
+      status = H5Aclose(attr_id);
+      
+      // - Attribute 4: n_obs
       attr_id = H5Acreate(dset_id, "n_obs", H5T_NATIVE_INT,
                           attr_dspace_id, H5P_DEFAULT, H5P_DEFAULT);
       status = H5Awrite(attr_id, H5T_NATIVE_INT, &n_obs);
       status = H5Aclose(attr_id);
       
-      // - Attribute 3: rel_noise
+      // - Attribute 5: rel_noise
       attr_id = H5Acreate(dset_id, "rel_noise", H5T_NATIVE_DOUBLE,
                           attr_dspace_id, H5P_DEFAULT, H5P_DEFAULT);
       status = H5Awrite(attr_id, H5T_NATIVE_DOUBLE, &rel_noise);
       
-      // - Attribute 4: noise_cov
+      // - Attribute 6: noise_cov
       attr_id = H5Acreate(dset_id, "noise_cov", H5T_NATIVE_DOUBLE,
                           attr_dspace_id, H5P_DEFAULT, H5P_DEFAULT);
       status = H5Awrite(attr_id, H5T_NATIVE_DOUBLE, &noise_cov);

@@ -150,6 +150,8 @@ param_rate=1
 obs_rate=1
 
 # Number of observers in x,y direction (uniformly placed)
+# choose: 2,3,5,9,17 [0.25  0.75 ]
+# choose: 2,3,7,13   [0.125 0.875]
 nx_obs=2
 ny_obs=3
 

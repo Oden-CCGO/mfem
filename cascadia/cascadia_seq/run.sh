@@ -83,10 +83,10 @@ lump=true
 ref=0
 
 # Final time
-tf=1.0
+tf=10.0
 
 # Number of time steps
-nt=100
+nt=1000
 
 # Parameter is defined for every n-th time step
 # - only used for unknown solution
@@ -100,9 +100,10 @@ param_rate=1
 obs_rate=1
 
 # Number of observers in x,y direction (uniformly placed)
-# choose: 2,3,5,9,17
+# choose: 2,3,5,9,17 [0.25  0.75 ]
+# choose: 2,3,7,13   [0.125 0.875]
 nx_obs=3
-ny_obs=3
+ny_obs=5
 
 # Specify format for output data
 # hdf = true  --> binary (HDF5)
@@ -113,7 +114,7 @@ hdf=true
 obs=true
 
 # Enable/disable writing paraview vis files
-vis=false
+vis=true
 
 # If vis files enabled, every n-th step they are written
 vs=10

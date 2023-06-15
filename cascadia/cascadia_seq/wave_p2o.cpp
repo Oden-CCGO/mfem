@@ -150,14 +150,8 @@ void WaveParamToObs::GetObs(Vector** &obs) const
       if (k % 5 == 0)
       {
          cout << "=========================================" << endl
-              << "time step = " << k << ", t = "
-                       << setprecision(2) << t_dim << " s"   << endl
+              << "time step = " << k << ", t = " << t_dim << " s"   << endl
               << "=========================================" << endl;
-         if (k % 10 == 0)
-         {
-            cout << endl << " Time-stepping until now took " << chrono.RealTime() << " seconds." << endl;
-            cout <<         " Average time/step until now: " << chrono.RealTime()/k << " seconds." << endl;
-         }
       }
       
       // Extract observations every "obs_rate"-th step
@@ -179,6 +173,12 @@ void WaveParamToObs::GetObs(Vector** &obs) const
             // TODO: avoid writing mesh data at every cycle
             paraview_dc->Save();
          }
+      }
+      
+      if (k % 10 == 0)
+      {
+         cout << endl << " Time-stepping until now took " << chrono.RealTime() << " seconds." << endl;
+         cout <<         " Average time/step until now: " << chrono.RealTime()/k << " seconds." << endl;
       }
    }
    cout << endl << "p2o Mult: Time-stepping took " << chrono.RealTime() << " seconds." << endl;
@@ -360,8 +360,7 @@ void WaveParamToObs::GetAdj(GridFunction** &adj) const
       if (k % 5 == 0)
       {
          cout << "=========================================" << endl
-              << "time step = " << k << ", t = "
-                       << setprecision(2) << t_dim << " s"   << endl
+              << "time step = " << k << ", t = " << t_dim << " s"   << endl
               << "=========================================" << endl;
       }
       
