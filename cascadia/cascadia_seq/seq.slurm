@@ -88,6 +88,9 @@ fwd=1
 # 2: use adjoint operator to export adjoint p2o map
 #    (number of solves ~ number of sensors)
 adj=0
+# 0: write adjoint vectors in standard ordering
+# 1: write adjoint vectors in block-reverse ordering
+adj_reverse_order=0
 
 # Configure the prior (regularization)
 #  0: Do not assemble prior
@@ -96,6 +99,9 @@ adj=0
 #  2: Bi-Laplacian prior (assemble)
 # 22: Bi-Laplacian prior (assemble + write to file)
 prior=0
+#  0: Write prior in standard indexing (time(outer), space(inner))
+#  1: Write prior in re-indexed dofs (space(outer), time(inner))
+prior_reindex=0
 
 # Regularization parameters
 # alpha1 ~ |m|
@@ -162,8 +168,9 @@ vis=true
 vs=5
 
 # Configure program arguments
-args=" -p ${p} -fwd ${fwd} -adj ${adj}"
-args+=" -prior ${prior} -alpha1 ${alpha1} -alpha2 ${alpha2} -alpha3 ${alpha3}"
+args=" -p ${p} -fwd ${fwd} -adj ${adj} -revadj ${adj_reverse_order}"
+args+=" -prior ${prior} -indprior ${prior_reindex}"
+args+=" -alpha1 ${alpha1} -alpha2 ${alpha2} -alpha3 ${alpha3}"
 args+=" -o ${o} -ode ${ode} -ref ${ref}"
 args+=" -tf ${tf} -nt ${nt}"
 args+=" -pr ${param_rate} -or ${obs_rate}"

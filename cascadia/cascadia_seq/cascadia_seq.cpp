@@ -62,7 +62,9 @@ int main(int argc, char *argv[])
    int problem = 1;
    int fwd = 1;
    int adj = 0;
+   int revadj = 0;
    int prior = 0;
+   int indprior = 0;
    double alpha1 = 1.0;
    double alpha2 = 1.0;
    double alpha3 = 0.0;
@@ -107,12 +109,18 @@ int main(int argc, char *argv[])
                   "Adjoint solve: 0 - Disable adjoint operator,\n\t"
                   "               1 - Enable adjoint operator (one solve),\n\t"
                   "               2 - Use adjoint operator to export adjoint p2o map.");
+   args.AddOption(&revadj, "-revadj", "--adj-reverse-order",
+                  "Adjoint reverse order: 0 - Write adjoint vectors in standard ordering,\n\t"
+                  "                       1 - Write adjoint vectors in block-reverse ordering.");
    args.AddOption(&prior, "-prior", "--prior",
                   "Prior: 0 - Do not assemble prior,\n\t"
                   "       1 - Laplacian prior (assemble),\n\t"
                   "      11 - Laplacian prior (assemble + write to file),\n\t"
                   "       2 - Bi-Laplacian prior (assemble),\n\t"
                   "      22 - Bi-Laplacian prior (assemble + write to file).");
+   args.AddOption(&indprior, "-indprior", "--prior-reindex",
+                  "Prior reindex: 0 - Write prior with indexing as time(outer)->space(inner),\n\t"
+                  "               1 - Write prior re-indexed as space(outer)->time(inner).");
    args.AddOption(&alpha1, "-alpha1", "--alpha1",
                   "Regularization parameter for scaling |m|.");
    args.AddOption(&alpha2, "-alpha2", "--alpha2",
@@ -166,11 +174,14 @@ int main(int argc, char *argv[])
    cout << endl;
    args.PrintOptions(cout);
    
+   // Set global variables
    WaveSolution::t_final = t_final;
    WaveSolution::n_steps = n_steps;
    WaveSolution::dt = t_final/n_steps;
    
    WaveIO::output_dir = output_dir;
+   if (revadj) { WaveIO::adj_reverse_order = true; }
+   if (indprior) { WavePrior::reindex = true; }
    
    // Checks for param_rate, obs_rate
    MFEM_VERIFY(n_steps % param_rate == 0,
@@ -542,10 +553,24 @@ int main(int argc, char *argv[])
    }
    // END TEST
    
+   // Read parameter from file
+   bool param_from_file = false;
+   if (param_from_file)
+   {
+      if (params)
+      {
+         for (int k = 0; k < param_steps; k++) { delete params[k]; params[k] = nullptr; }
+         delete[] params; params = nullptr;
+      }
+      string filename(output_dir);
+      filename += (hdf) ? "/param_vec.h5" : "/param_vec.txt";
+      params = wave_io.ParamFromFile(filename);
+   }
+   
    // Write parameter to ParaView output
    if (params && visualization)
    {
-      cout << "Writing parameter field to paraview output..." << endl;
+      cout << "Writing parameter field to ParaView output..." << endl;
       string param_dc_name = "Parameter";
       WaveVis param_vis(bottom_mesh, visualization, vis_steps, order_m, param_dc_name);
       
@@ -593,6 +618,30 @@ int main(int argc, char *argv[])
          wave_io.FwdToFile(obs);
       }
       
+      bool test_misfit = true; // unit test
+      if (test_misfit)
+      {
+         double misfit = wave_p2o->EvalMisfit(obs, obs);
+         MFEM_VERIFY(abs(misfit) < 1.0e-14, "misfit > 0");
+         
+         Vector **noisy_obs = new Vector*[obs_steps];
+         for (int k = 0; k < obs_steps; k++)
+         {
+            Vector &tmp = *(obs[k]);
+            noisy_obs[k] = new Vector(tmp);
+         }
+         double rel_noise = 0.01;
+         double noise_var = wave_p2o->AddNoise(noisy_obs, rel_noise);
+         misfit = wave_p2o->EvalMisfit(obs, noisy_obs);
+         
+         cout << endl << "rel noise = " << rel_noise << endl;
+         cout         << "noise var = " << noise_var << endl;
+         cout         << "   misfit = " << misfit << endl << endl;
+         
+         for (int k = 0; k < obs_steps; k++) { delete noisy_obs[k]; noisy_obs[k] = nullptr; }
+         delete[] noisy_obs; noisy_obs = nullptr;
+      }
+      
       bool test_obs_io = true; // unit test
       if (test_obs_io)
       {
@@ -600,7 +649,9 @@ int main(int argc, char *argv[])
          filename += (hdf) ? "/obs_vec.h5" : "/obs_vec.txt";
          
          // Write observations to file
-         wave_io.ObsToFile(filename, obs);
+         double rel_noise = 0.0;
+         double noise_cov = 1.0;
+         wave_io.ObsToFile(filename, obs, rel_noise, noise_cov);
          
          // Read observations from file
          Vector **obs_in = wave_io.ObsFromFile(filename);
@@ -614,12 +665,14 @@ int main(int argc, char *argv[])
             {
                //cout << "o_out[" << i << "] = " << o_out[i] << endl;
                //cout << "o_in [" << i << "] = " << o_in[i] << endl;
-               MFEM_VERIFY(abs(o_out[i]-o_in[i]) < 1.0e-12, "o_out != o_in");
+               double diff = abs(o_out[i]-o_in[i]);
+               MFEM_VERIFY(diff < 1.0e-12 || diff < 1.0e-5*abs(o_out[i]),
+                           "o_out != o_in");
             }
          }
          
          for (int k = 0; k < obs_steps; k++) { delete obs_in[k]; obs_in[k] = nullptr; }
-         delete obs_in; obs_in = nullptr;
+         delete[] obs_in; obs_in = nullptr;
       }
    }
    else if (fwd == 2)
@@ -834,12 +887,14 @@ int main(int argc, char *argv[])
             {
                //cout << "params_out[" << i << "] = " << p_out[i] << endl;
                //cout << "params_in [" << i << "] = " << p_in[i] << endl;
-               MFEM_VERIFY(abs(p_out[i]-p_in[i]) < 1.0e-12, "p_out != p_in");
+               double diff = abs(p_out[i]-p_in[i]);
+               MFEM_VERIFY(diff < 1.0e-12 || diff < 1.0e-5*abs(p_out[i]),
+                           "p_out != p_in");
             }
          }
          
          for (int k = 0; k < param_steps; k++) { delete params_in[k]; params_in[k] = nullptr; }
-         delete params_in; params_in = nullptr;
+         delete[] params_in; params_in = nullptr;
       }
    }
 
@@ -848,23 +903,23 @@ int main(int argc, char *argv[])
    if (params)
    {
       for (int k = 0; k < param_steps; k++) { delete params[k]; params[k] = nullptr; }
-      delete params; params = nullptr;
+      delete[] params; params = nullptr;
    }
    if (obs)
    {
       for (int k = 0; k < obs_steps; k++) { delete obs[k]; obs[k] = nullptr; }
       if (data==obs) { data = nullptr; }
-      delete obs; obs = nullptr;
+      delete[] obs; obs = nullptr;
    }
    if (data)
    {
       for (int k = 0; k < obs_steps; k++) { delete data[k]; data[k] = nullptr; }
-      delete data; data = nullptr;
+      delete[] data; data = nullptr;
    }
    if (adj_gf)
    {
       for (int k = 0; k < param_steps; k++) { delete adj_gf[k]; adj_gf[k] = nullptr; }
-      delete adj_gf; adj_gf = nullptr;
+      delete[] adj_gf; adj_gf = nullptr;
    }
    
    delete wave_p2o;

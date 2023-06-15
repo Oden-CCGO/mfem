@@ -61,6 +61,12 @@ public:
    /// Adjoint operator using data input
    void MultTranspose(Vector **data, GridFunction** &adj) const;
    
+   /// Evaluate misfit part of cost functional (between model observations and data)
+   double EvalMisfit(Vector** &obs, Vector** &data) const;
+   
+   /// Add noise to observations; returns noise covariance
+   double AddNoise(Vector** &obs, double rel_noise) const;
+   
    /// Project a TD function onto GridFunctions for each time step
    GridFunction** ParamToGF(std::function<double(const Vector &, double)> TDF) const;
 

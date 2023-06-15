@@ -38,6 +38,9 @@ fwd=1
 # 2: use adjoint operator to export adjoint p2o map
 #    (number of solves ~ number of sensors)
 adj=0
+# 0: write adjoint vectors in standard ordering
+# 1: write adjoint vectors in block-reverse ordering
+adj_reverse_order=0
 
 # Configure the prior (regularization)
 #  0: Do not assemble prior
@@ -46,14 +49,17 @@ adj=0
 #  2: Bi-Laplacian prior (assemble)
 # 22: Bi-Laplacian prior (assemble + write to file)
 prior=0
+#  0: Write prior in standard indexing (time(outer), space(inner))
+#  1: Write prior in re-indexed dofs (space(outer), time(inner))
+prior_reindex=0
 
 # Regularization parameters
 # alpha1 ~ |m|
 # alpha2 ~ |grad m|
 # alpha3 ~ |dm/dt|
-alpha1=1.0e6
-alpha2=1.0e6
-alpha3=1.0e2
+alpha1=1.0e-3
+alpha2=1.0e-3
+alpha3=1.0e-5
 
 # Polynomial order of approximation
 #   order_p = o   (scalar-valued H1 pressure space)
@@ -77,10 +83,10 @@ lump=true
 ref=0
 
 # Final time
-tf=0.1
+tf=1.0
 
 # Number of time steps
-nt=10
+nt=100
 
 # Parameter is defined for every n-th time step
 # - only used for unknown solution
@@ -94,7 +100,8 @@ param_rate=1
 obs_rate=1
 
 # Number of observers in x,y direction (uniformly placed)
-nx_obs=2
+# choose: 2,3,5,9,17
+nx_obs=3
 ny_obs=3
 
 # Specify format for output data
@@ -106,14 +113,15 @@ hdf=true
 obs=true
 
 # Enable/disable writing paraview vis files
-vis=true
+vis=false
 
 # If vis files enabled, every n-th step they are written
-vs=5
+vs=10
 
 # Configure program arguments
-args=" -d ${d} -p ${p} -fwd ${fwd} -adj ${adj}"
-args+=" -prior ${prior} -alpha1 ${alpha1} -alpha2 ${alpha2} -alpha3 ${alpha3}"
+args=" -d ${d} -p ${p} -fwd ${fwd} -adj ${adj} -revadj ${adj_reverse_order}"
+args+=" -prior ${prior} -indprior ${prior_reindex}"
+args+=" -alpha1 ${alpha1} -alpha2 ${alpha2} -alpha3 ${alpha3}"
 args+=" -o ${o} -ode ${ode} -ref ${ref}"
 args+=" -tf ${tf} -nt ${nt}"
 args+=" -pr ${param_rate} -or ${obs_rate}"

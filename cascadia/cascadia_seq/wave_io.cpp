@@ -15,6 +15,7 @@ namespace mfem
 using namespace std;
 
 string WaveIO::output_dir = ".";
+bool WaveIO::adj_reverse_order = false;
 
 WaveIO::WaveIO(FiniteElementSpace* param_space_, WaveObservationOp &wave_obs_,
                int n_steps_, double dt_, int n_param_, int n_obs_,
@@ -32,7 +33,6 @@ WaveIO::WaveIO(FiniteElementSpace* param_space_, WaveObservationOp &wave_obs_,
    count_adj_binary = 0;
    
    memcpy = false;
-   reverse_order = false;
 }
 
 void WaveIO::MetaToFile(bool adj)
@@ -79,7 +79,7 @@ void WaveIO::MetaToFile(bool adj)
       meta_file << suffix << endl;        // <string> suffix for vector files (.txt or .h5)
       if (adj)
       {
-         meta_file << reverse_order << endl; // <bool> adj_vec written in block-reverse order
+         meta_file << adj_reverse_order << endl; // <bool> adj_vec written in block-reverse order
       }
       else
       {
@@ -158,7 +158,8 @@ void WaveIO::AdjToFile(GridFunction **adj)
    cout << "AdjToFile: done." << endl;
 }
 
-void WaveIO::ObsToFile(const std::string &filename, Vector **obs)
+void WaveIO::ObsToFile(const std::string &filename, Vector **obs,
+                       double rel_noise, double noise_cov)
 {
    if (binary)
    {
@@ -177,6 +178,41 @@ void WaveIO::ObsToFile(const std::string &filename, Vector **obs)
       hid_t dset_id;
       dset_id = H5Dcreate(file_id, "vec", H5T_NATIVE_DOUBLE, dspace_id,
                           H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+
+      // Attach attributes to datasets
+      hid_t attr_dspace_id = H5Screate(H5S_SCALAR);
+      hid_t attr_id;
+      
+      // - Attribute 1: obs_steps
+      attr_id = H5Acreate(dset_id, "obs_steps", H5T_NATIVE_INT,
+                          attr_dspace_id, H5P_DEFAULT, H5P_DEFAULT);
+      status = H5Awrite(attr_id, H5T_NATIVE_INT, &obs_steps);
+      status = H5Aclose(attr_id);
+      
+      // - Attribute 2: n_obs
+      attr_id = H5Acreate(dset_id, "n_obs", H5T_NATIVE_INT,
+                          attr_dspace_id, H5P_DEFAULT, H5P_DEFAULT);
+      status = H5Awrite(attr_id, H5T_NATIVE_INT, &n_obs);
+      status = H5Aclose(attr_id);
+      
+      // - Attribute 3: rel_noise
+      attr_id = H5Acreate(dset_id, "rel_noise", H5T_NATIVE_DOUBLE,
+                          attr_dspace_id, H5P_DEFAULT, H5P_DEFAULT);
+      status = H5Awrite(attr_id, H5T_NATIVE_DOUBLE, &rel_noise);
+      
+      // - Attribute 4: noise_cov
+      attr_id = H5Acreate(dset_id, "noise_cov", H5T_NATIVE_DOUBLE,
+                          attr_dspace_id, H5P_DEFAULT, H5P_DEFAULT);
+      status = H5Awrite(attr_id, H5T_NATIVE_DOUBLE, &noise_cov);
+      
+      // - Attribute 5: reindex
+      int reindex = 0;
+      attr_id = H5Acreate(dset_id, "reindex", H5T_NATIVE_INT,
+                          attr_dspace_id, H5P_DEFAULT, H5P_DEFAULT);
+      status = H5Awrite(attr_id, H5T_NATIVE_INT, &reindex);
+      status = H5Aclose(attr_id);
+      
+      status = H5Sclose(attr_dspace_id);
 
       // Write dataset
       if (memcpy)
@@ -247,7 +283,7 @@ void WaveIO::ObsToFile(const std::string &filename, Vector **obs)
                         "Size of obs vector does not match.");
             for (int i = 0; i < n_obs; i++)
             {
-               obs_file << scientific << tmp[i] << endl;
+               obs_file << setprecision(10) << scientific << tmp[i] << endl;
             }
          }
          obs_file.close();
@@ -349,6 +385,7 @@ Vector** WaveIO::ObsFromFile(const std::string &filename)
          {
             obs[k] = new Vector(n_obs);
             Vector &tmp = *(obs[k]);
+            
             for (int i = 0; i < n_obs; i++)
             {
                obs_file >> tmp[i];
@@ -387,6 +424,31 @@ void WaveIO::ParamToFile(const std::string &filename, GridFunction **param)
       dset_id = H5Dcreate(file_id, "vec", H5T_NATIVE_DOUBLE, dspace_id,
                           H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
 
+      // Attach attributes to datasets
+      hid_t attr_dspace_id = H5Screate(H5S_SCALAR);
+      hid_t attr_id;
+      
+      // - Attribute 1: param_steps
+      attr_id = H5Acreate(dset_id, "param_steps", H5T_NATIVE_INT,
+                          attr_dspace_id, H5P_DEFAULT, H5P_DEFAULT);
+      status = H5Awrite(attr_id, H5T_NATIVE_INT, &param_steps);
+      status = H5Aclose(attr_id);
+      
+      // - Attribute 2: n_param
+      attr_id = H5Acreate(dset_id, "n_param", H5T_NATIVE_INT,
+                          attr_dspace_id, H5P_DEFAULT, H5P_DEFAULT);
+      status = H5Awrite(attr_id, H5T_NATIVE_INT, &n_param);
+      status = H5Aclose(attr_id);
+      
+      // - Attribute 3: reindex
+      int reindex = 0;
+      attr_id = H5Acreate(dset_id, "reindex", H5T_NATIVE_INT,
+                          attr_dspace_id, H5P_DEFAULT, H5P_DEFAULT);
+      status = H5Awrite(attr_id, H5T_NATIVE_INT, &reindex);
+      status = H5Aclose(attr_id);
+      
+      status = H5Sclose(attr_dspace_id);
+      
       // Write dataset
       if (memcpy)
       {
@@ -395,10 +457,7 @@ void WaveIO::ParamToFile(const std::string &filename, GridFunction **param)
          
          for (int k = 0; k < param_steps; k++)
          {
-            // FFT Matvec code expects sub-vectors in "block-reverse" order
-            int l = (reverse_order) ? param_steps-1-k : k;
-            
-            Vector &tmp = *(param[l]);
+            Vector &tmp = *(param[k]);
             MFEM_VERIFY(tmp.Size() == n_param,
                         "Size of param vector does not match.");
             for (int i = 0; i < n_param; i++)
@@ -421,12 +480,9 @@ void WaveIO::ParamToFile(const std::string &filename, GridFunction **param)
          
          for (int k = 0; k < param_steps; k++)
          {
-            // FFT Matvec code expects sub-vectors in "block-reverse" order
-            int l = (reverse_order) ? param_steps-1-k : k;
-            
-            MFEM_VERIFY(param[l]->Size() == n_param,
+            MFEM_VERIFY(param[k]->Size() == n_param,
                         "Size of param vector does not match.");
-            const double *dset_data = param[l]->HostRead();
+            const double *dset_data = param[k]->HostRead();
             
             // Select file dataspace
             status = H5Sselect_hyperslab(dspace_id, H5S_SELECT_SET, &offset, &stride, &count, &block);
@@ -458,14 +514,12 @@ void WaveIO::ParamToFile(const std::string &filename, GridFunction **param)
       {
          for (int k = 0; k < param_steps; k++)
          {
-            int l = (reverse_order) ? param_steps-1-k : k;
-            
-            GridFunction &tmp = *(param[l]);
+            GridFunction &tmp = *(param[k]);
             MFEM_VERIFY(tmp.Size() == n_param,
                         "Size of param vector does not match.");
             for (int i = 0; i < n_param; i++)
             {
-               param_file << scientific << tmp[i] << endl;
+               param_file << setprecision(10) << scientific << tmp[i] << endl;
             }
          }
          param_file.close();
@@ -503,10 +557,8 @@ GridFunction** WaveIO::ParamFromFile(const std::string &filename)
          
          for (int k = 0; k < param_steps; k++)
          {
-            int l = (reverse_order) ? param_steps-1-k : k;
-            
-            params[l] = new GridFunction(param_space);
-            GridFunction &tmp = *(params[l]);
+            params[k] = new GridFunction(param_space);
+            GridFunction &tmp = *(params[k]);
             
             for (int i = 0; i < n_param; i++)
             {
@@ -533,10 +585,8 @@ GridFunction** WaveIO::ParamFromFile(const std::string &filename)
 
          for (int k = 0; k < param_steps; k++)
          {
-            int l = (reverse_order) ? param_steps-1-k : k;
-
-            params[l] = new GridFunction(param_space);
-            GridFunction &tmp = *(params[l]);
+            params[k] = new GridFunction(param_space);
+            GridFunction &tmp = *(params[k]);
 
             // Select file dataspace
             status = H5Sselect_hyperslab(dspace_id, H5S_SELECT_SET, &offset, &stride, &count, &block);
@@ -569,9 +619,8 @@ GridFunction** WaveIO::ParamFromFile(const std::string &filename)
       {
          for (int k = 0; k < param_steps; k++)
          {
-            int l = (reverse_order) ? param_steps-1-k : k;
-            params[l] = new GridFunction(param_space);
-            GridFunction &tmp = *(params[l]);
+            params[k] = new GridFunction(param_space);
+            GridFunction &tmp = *(params[k]);
             
             for (int i = 0; i < n_param; i++)
             {

@@ -2,6 +2,8 @@
 #include "cascadia.hpp"
 #include "hdf5.h"
 
+#include <random>
+
 namespace mfem
 {
 
@@ -148,7 +150,8 @@ void WaveParamToObs::GetObs(Vector** &obs) const
       if (k % 5 == 0)
       {
          cout << "=========================================" << endl
-              << "time step = " << k << ", t = " << t_dim << " s"   << endl
+              << "time step = " << k << ", t = "
+                       << setprecision(2) << t_dim << " s"   << endl
               << "=========================================" << endl;
          if (k % 10 == 0)
          {
@@ -357,13 +360,9 @@ void WaveParamToObs::GetAdj(GridFunction** &adj) const
       if (k % 5 == 0)
       {
          cout << "=========================================" << endl
-              << "time step = " << k << ", t = " << t_dim << " s"   << endl
+              << "time step = " << k << ", t = "
+                       << setprecision(2) << t_dim << " s"   << endl
               << "=========================================" << endl;
-         if (k % 10 == 0)
-         {
-            cout << endl << " Time-stepping until now took " << chrono.RealTime() << " seconds." << endl;
-            cout <<         " Average time/step until now: " << chrono.RealTime()/k << " seconds." << endl;
-         }
       }
       
       // Extract output every "param_rate"-th step
@@ -393,6 +392,12 @@ void WaveParamToObs::GetAdj(GridFunction** &adj) const
             paraview_dc->Save();
          }
       }
+      
+      if (k % 10 == 0)
+      {
+         cout << endl << " Time-stepping until now took " << chrono.RealTime() << " seconds." << endl;
+         cout <<         " Average time/step until now: " << chrono.RealTime()/k << " seconds." << endl;
+      }
    }
    cout << endl << "p2o MultTranspose: Time-stepping took " << chrono.RealTime() << " seconds." << endl;
    cout <<         "p2o MultTranspose: Average time/step: " << chrono.RealTime()/n_steps << " seconds." << endl;
@@ -416,6 +421,50 @@ void WaveParamToObs::MultTranspose(Vector **data, GridFunction** &adj) const
    
    // Perform Mult operator
    GetAdj(adj);
+}
+
+/// Evaluate misfit part of cost functional (between model observations and data)
+double WaveParamToObs::EvalMisfit(Vector** &obs, Vector** &data) const
+{
+   double misfit = 0;
+   
+   for (int k = 0; k < obs_steps; k++)
+   {
+      Vector &obs_vec = *(obs[k]);
+      Vector &data_vec = *(data[k]);
+      Vector misfit_vec(obs_vec);
+      misfit_vec -= data_vec;
+      misfit += InnerProduct(misfit_vec, misfit_vec);
+   }
+   
+   return misfit;
+}
+   
+/// Add noise to observations
+double WaveParamToObs::AddNoise(Vector** &obs, double rel_noise) const
+{
+   double max_val = 0.0;
+   for (int k = 0; k < obs_steps; k++)
+   {
+      Vector &obs_vec = *(obs[k]);
+      max_val = max(max_val, obs_vec.Normlinf());
+   }
+   double noise_std_dev = rel_noise * max_val;
+   
+   std::random_device rnd_dev;
+   std::default_random_engine rnd_gen(rnd_dev());
+   std::normal_distribution<double> distr(0.0, noise_std_dev);
+   
+   for (int k = 0; k < obs_steps; k++)
+   {
+      Vector &obs_vec = *(obs[k]);
+      for (int i = 0; i < n_obs; i++)
+      {
+         obs_vec[i] += distr(rnd_gen);
+      }
+   }
+   
+   return noise_std_dev * noise_std_dev;
 }
 
 GridFunction** WaveParamToObs::ParamToGF(function<double(const Vector &, double)> TDF) const

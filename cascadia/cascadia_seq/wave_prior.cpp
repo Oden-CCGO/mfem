@@ -7,6 +7,8 @@ namespace mfem
 
 using namespace std;
 
+bool WavePrior::reindex = false;
+
 WavePrior::WavePrior(FiniteElementSpace &fes_m_,
                      int height_, int type_,
                      double time_step_, int param_rate_, int param_steps_,
@@ -131,10 +133,6 @@ WavePrior::WavePrior(FiniteElementSpace &fes_m_,
 
    cout << "Timer: Space-time matrix assembly (prior): "
         << chrono.RealTime() << " seconds." << endl;
-   
-   // Specify whether PriorToFile re-indexes CSR matrix before
-   // writing to file, as is needed by the FFT matvec code
-   reindex = true;
 }
 
 void WavePrior::Mult(const Vector &x, Vector &y) const

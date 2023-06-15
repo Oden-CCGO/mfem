@@ -53,11 +53,15 @@ public:
    /// Write output of forward map to file (data space)
    void FwdToFile(Vector **obs);
    
+   /// Specifies if writing adjoint vectors in block-reverse ordering
+   static bool adj_reverse_order;
+   
    /// Write output of adjoint map to file (parameter space)
    void AdjToFile(GridFunction **adj);
    
    /// Write observations to file
-   void ObsToFile(const std::string &filename, Vector **obs);
+   void ObsToFile(const std::string &filename, Vector **obs,
+                  double rel_noise=0.0, double noise_cov=1.0);
    
    /// Read observations from file
    Vector** ObsFromFile(const std::string &filename);
