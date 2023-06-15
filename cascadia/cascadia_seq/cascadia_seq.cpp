@@ -63,6 +63,7 @@ int main(int argc, char *argv[])
    int fwd = 1;
    int adj = 0;
    int revadj = 0;
+   int adjvec = -1;
    int prior = 0;
    int indprior = 0;
    double alpha1 = 1.0;
@@ -109,9 +110,12 @@ int main(int argc, char *argv[])
                   "Adjoint solve: 0 - Disable adjoint operator,\n\t"
                   "               1 - Enable adjoint operator (one solve),\n\t"
                   "               2 - Use adjoint operator to export adjoint p2o map.");
-   args.AddOption(&revadj, "-revadj", "--adj-reverse-order",
+   args.AddOption(&revadj, "-revadj", "--adjoint-reverse-order",
                   "Adjoint reverse order: 0 - Write adjoint vectors in standard ordering,\n\t"
                   "                       1 - Write adjoint vectors in block-reverse ordering.");
+   args.AddOption(&adjvec, "-adjvec", "--adjoint-vec",
+                  "Adjoint p2o vectors:  -1 - Compute all adjoint vectors (if adj=2),\n\t"
+                  "                     >=0 - Compute this particular adjoint vector (if adj=2).");
    args.AddOption(&prior, "-prior", "--prior",
                   "Prior: 0 - Do not assemble prior,\n\t"
                   "       1 - Laplacian prior (assemble),\n\t"
@@ -215,8 +219,8 @@ int main(int argc, char *argv[])
       int nz = 1; double sz = 1.0;
       if (problem >= 100)
       {
-         sx = 8.0; nx = 16; int xfac =  1;
-         sy = 8.0; ny = 16; int yfac =  2;
+         sx = 8.0; nx = 16; int xfac =  8;
+         sy = 8.0; ny = 16; int yfac = 16;
          sz = 4.0; nz = 16;
          sx *= xfac; nx *= xfac;
          sy *= yfac; ny *= yfac;
@@ -427,7 +431,7 @@ int main(int argc, char *argv[])
    WaveObservationOp wave_obs(*param_space, wave_map, pts_mat);
 
    // TEST: Mapping between: State space <-> Data space (pointwise observations)
-   bool test_data_maps = true;
+   bool test_data_maps = false;
    if (test_data_maps)
    {
       GridFunction pressure_gf(CG_space);
@@ -541,7 +545,7 @@ int main(int argc, char *argv[])
    // TEST: Create loads for all time-steps using GridFunctionCoefficients
    //       -> only used for unknown solutions
    GridFunction **params = nullptr;
-   bool test_store_load = true;
+   bool test_store_load = false;
    if (test_store_load && WaveSolution::IsUnknown() && fwd==1)
    {
       cout << "Storing p2o fwd load (parameter) via GridFunctionCoefficients." << endl << endl;
@@ -618,7 +622,7 @@ int main(int argc, char *argv[])
          wave_io.FwdToFile(obs);
       }
       
-      bool test_misfit = true; // unit test
+      bool test_misfit = false; // unit test
       if (test_misfit)
       {
          double misfit = wave_p2o->EvalMisfit(obs, obs);
@@ -642,7 +646,7 @@ int main(int argc, char *argv[])
          delete[] noisy_obs; noisy_obs = nullptr;
       }
       
-      bool test_obs_io = true; // unit test
+      bool test_obs_io = false; // unit test
       if (test_obs_io)
       {
          string filename(output_dir);
@@ -762,14 +766,26 @@ int main(int argc, char *argv[])
       chrono.Clear();
       for (int k = obs_steps-m; k < obs_steps; k++) // do m := obs_steps to write all columns (not compact version)
       {
-         for (int j = 0; j < n_obs; j++)
+         int first_vec = 0;
+         int last_vec = n_obs;
+         if (adjvec >= 0)
+         {
+            first_vec = adjvec;
+            last_vec = adjvec+1;
+            if (last_vec > n_obs)
+            {
+               MFEM_WARNING("adjvec >= n_obs! Setting to n_obs-1.");
+               last_vec = n_obs;
+            }
+         }
+         for (int j = first_vec; j < last_vec; j++)
          {
             cout << endl << "+++ Adjoint solve number " << (k-(obs_steps-m))*n_obs+(j+1) << " / " << m*n_obs << endl << endl;
             // Compacted version: activate j-th sensor at terminal time (adjoint load),
             // yielding the j-th column of the last column block of adjoint p2o map
             (*(data[k]))[j] = 1.0; // TODO: testing
             wave_p2o->MultTranspose(data, adj_gf);
-            wave_io.AdjToFile(adj_gf);
+            wave_io.AdjToFile(adj_gf, j);
             wave_adj->ResetLoad();
             (*(data[k]))[j] = 0.0;
          }

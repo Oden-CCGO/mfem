@@ -57,7 +57,7 @@ public:
    static bool adj_reverse_order;
    
    /// Write output of adjoint map to file (parameter space)
-   void AdjToFile(GridFunction **adj);
+   void AdjToFile(GridFunction **adj, int adjvec=0);
    
    /// Write observations to file
    void ObsToFile(const std::string &filename, Vector **obs,

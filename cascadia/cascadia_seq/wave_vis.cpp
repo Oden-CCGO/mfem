@@ -28,7 +28,8 @@ void WaveVis::NewCollection(string &collection_name_, Mesh *mesh_)
       string pv = WaveIO::output_dir + "/ParaView";
       paraview_dc->SetPrefixPath(pv);
       paraview_dc->SetLevelsOfDetail(vis_order);
-      paraview_dc->SetDataFormat(VTKFormat::BINARY);
+//      paraview_dc->SetDataFormat(VTKFormat::BINARY);
+      paraview_dc->SetDataFormat(VTKFormat::BINARY32);
       paraview_dc->SetHighOrderOutput(true);
    }
 }

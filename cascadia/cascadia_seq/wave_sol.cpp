@@ -428,10 +428,10 @@ double mParameter(const Vector &x, double t)
       double yi(x(1));
    
       // source term not non-dimensionalized in time yet (assumes t0 = 1 s)
-      double ar = 0.1; // Rise amplitude [scale of m]
-      double xr = 1.0; // Rise width in x [scale of km]
-      double yr = 2.0; // Rise width in y [scale of km]
-      double tr = 2.0; // Rise time [scale of s]
+      double ar = 5.0; // Rise amplitude [scale of m]
+      double xr = 8.0; // Rise width in x [scale of km]
+      double yr = 16.0; // Rise width in y [scale of km]
+      double tr = 25.0; // Rise time [scale of s]
       double xi_c = (xmax-xmin)/2; // Rise center in x
       double yi_c = (ymax-ymin)/2; // Rise center in y
       

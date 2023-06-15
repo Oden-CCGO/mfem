@@ -41,6 +41,10 @@ adj=0
 # 0: write adjoint vectors in standard ordering
 # 1: write adjoint vectors in block-reverse ordering
 adj_reverse_order=0
+# If using adj=2, adj_vec specifies which vectors are generated
+# -1               : compute all adjoint vectors
+# 0, 1, .., n_obs-1: compute one particular adjoint vector
+adj_vec=-1
 
 # Configure the prior (regularization)
 #  0: Do not assemble prior

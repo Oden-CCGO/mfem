@@ -28,9 +28,7 @@ WaveIO::WaveIO(FiniteElementSpace* param_space_, WaveObservationOp &wave_obs_,
    obs_steps = n_steps/obs_rate;
    
    count_fwd_text = 0;
-   count_adj_text = 0;
    count_fwd_binary = 0;
-   count_adj_binary = 0;
    
    memcpy = false;
 }
@@ -129,28 +127,26 @@ void WaveIO::FwdToFile(Vector **obs)
    cout << "FwdToFile: done." << endl;
 }
 
-void WaveIO::AdjToFile(GridFunction **adj)
+void WaveIO::AdjToFile(GridFunction **adj, int adjvec)
 {
    ostringstream filename_oss;
    if (binary)
    {
-      if (count_adj_binary == 0)
+      if (adjvec == 0)
       {
          MetaToFile(true);
       }
       filename_oss << rel_path << prefix_adj
-                   << setfill('0') << setw(6) << count_adj_binary << ".h5";
-      count_adj_binary++;
+                   << setfill('0') << setw(6) << adjvec << ".h5";
    }
    else
    {
-      if (count_adj_text == 0)
+      if (adjvec == 0)
       {
          MetaToFile(true);
       }
       filename_oss << rel_path << prefix_adj
-                   << setfill('0') << setw(6) << count_adj_text << ".txt";
-      count_adj_text++;
+                   << setfill('0') << setw(6) << adjvec << ".txt";
    }
 
    cout << "AdjToFile: writing to " << filename_oss.str() << endl;
@@ -217,7 +213,7 @@ void WaveIO::ObsToFile(const std::string &filename, Vector **obs,
                           attr_dspace_id, H5P_DEFAULT, H5P_DEFAULT);
       status = H5Awrite(attr_id, H5T_NATIVE_DOUBLE, &noise_cov);
       
-      // - Attribute 5: reindex
+      // - Attribute 7: reindex
       int reindex = 0;
       attr_id = H5Acreate(dset_id, "reindex", H5T_NATIVE_INT,
                           attr_dspace_id, H5P_DEFAULT, H5P_DEFAULT);
