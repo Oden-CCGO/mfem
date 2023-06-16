@@ -30,11 +30,25 @@ WaveIO::WaveIO(FiniteElementSpace* param_space_, WaveObservationOp &wave_obs_,
    count_fwd_text = 0;
    count_fwd_binary = 0;
    
+   init_meta_fwd = false;
+   init_meta_adj = false;
+   
    memcpy = false;
 }
 
 void WaveIO::MetaToFile(bool adj)
 {
+   if (adj)
+   {
+      if (init_meta_adj) { return; }
+      init_meta_adj = true;
+   }
+   else
+   {
+      if (init_meta_fwd) { return; }
+      init_meta_fwd = true;
+   }
+
    string prefix, suffix;
    
    rel_path = output_dir + "/p2o/";
@@ -103,20 +117,14 @@ void WaveIO::FwdToFile(Vector **obs)
    ostringstream filename_oss;
    if (binary)
    {
-      if (count_fwd_binary == 0)
-      {
-         MetaToFile(false);
-      }
+      MetaToFile(false);
       filename_oss << rel_path << prefix_fwd
                    << setfill('0') << setw(6) << count_fwd_binary << ".h5";
       count_fwd_binary++;
    }
    else
    {
-      if (count_fwd_text == 0)
-      {
-         MetaToFile(false);
-      }
+      MetaToFile(false);
       filename_oss << rel_path << prefix_fwd
                    << setfill('0') << setw(6) << count_fwd_text << ".txt";
       count_fwd_text++;
@@ -132,19 +140,13 @@ void WaveIO::AdjToFile(GridFunction **adj, int adjvec)
    ostringstream filename_oss;
    if (binary)
    {
-      if (adjvec == 0)
-      {
-         MetaToFile(true);
-      }
+      MetaToFile(true);
       filename_oss << rel_path << prefix_adj
                    << setfill('0') << setw(6) << adjvec << ".h5";
    }
    else
    {
-      if (adjvec == 0)
-      {
-         MetaToFile(true);
-      }
+      MetaToFile(true);
       filename_oss << rel_path << prefix_adj
                    << setfill('0') << setw(6) << adjvec << ".txt";
    }

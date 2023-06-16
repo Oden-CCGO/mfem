@@ -31,10 +31,10 @@ protected:
    std::string rel_path;
    std::string prefix_fwd;
    std::string prefix_adj;
+   bool init_meta_fwd;
+   bool init_meta_adj;
    int count_fwd_text;   // counter for h5 file suffix (forward map)
-   int count_adj_text;   // counter for h5 file suffix (adjoint map)
    int count_fwd_binary; // counter for txt file suffix (forward map)
-   int count_adj_binary; // counter for txt file suffix (adjoint map)
    bool memcpy; // specifies whether FwdToFile/AdjToFile copy sub-vectors
                 // into a global vector before writing to dataset
    bool reverse_order; // specifies whether adj_vec are written in block-reverse
