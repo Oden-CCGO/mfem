@@ -43,7 +43,7 @@
 #SBATCH -t 01:59:00        # Run time (hh:mm:ss)
 #SBATCH --mail-user=stefan@oden.utexas.edu
 #SBATCH --mail-type=all    # Send email at begin and end of job
-#SBATCH -A FTA-SUB-Ghattas # Allocation name (req'd if you have more than 1)
+#SBATCH -A A-ti2           # Allocation name (req'd if you have more than 1)
 
 # Other commands must follow all #SBATCH directives...
 
@@ -90,7 +90,11 @@ fwd=1
 adj=0
 # 0: write adjoint vectors in standard ordering
 # 1: write adjoint vectors in block-reverse ordering
-adj_reverse_order=0
+adj_reverse_order=1
+# If using adj=2, adj_vec specifies which vectors are generated
+# -1               : compute all adjoint vectors
+# 0, 1, .., n_obs-1: compute one particular adjoint vector
+adj_vec=14
 
 # Configure the prior (regularization)
 #  0: Do not assemble prior
@@ -101,7 +105,7 @@ adj_reverse_order=0
 prior=0
 #  0: Write prior in standard indexing (time(outer), space(inner))
 #  1: Write prior in re-indexed dofs (space(outer), time(inner))
-prior_reindex=0
+prior_reindex=1
 
 # Regularization parameters
 # alpha1 ~ |m|
@@ -133,10 +137,10 @@ lump=true
 ref=0
 
 # Final time
-tf=0.2
+tf=50.0
 
 # Number of time steps
-nt=20
+nt=1000
 
 # Parameter is defined for every n-th time step
 # - only used for unknown solution
@@ -147,13 +151,13 @@ param_rate=1
 # - only used for unknown solution
 # - must evenly divide the number of time steps
 # - must be a multiple of param_rate
-obs_rate=1
+obs_rate=2
 
 # Number of observers in x,y direction (uniformly placed)
 # choose: 2,3,5,9,17 [0.25  0.75 ]
 # choose: 2,3,7,13   [0.125 0.875]
-nx_obs=2
-ny_obs=3
+nx_obs=3
+ny_obs=5
 
 # Specify format for output data
 # hdf = true  --> binary (HDF5)
@@ -164,13 +168,14 @@ hdf=true
 obs=true
 
 # Enable/disable writing paraview vis files
-vis=true
+vis=false
 
 # If vis files enabled, every n-th step they are written
-vs=5
+vs=20
 
 # Configure program arguments
-args=" -p ${p} -fwd ${fwd} -adj ${adj} -revadj ${adj_reverse_order}"
+args=" -p ${p} -fwd ${fwd} -adj ${adj}"
+args+=" -revadj ${adj_reverse_order} -adjvec ${adj_vec}"
 args+=" -prior ${prior} -indprior ${prior_reindex}"
 args+=" -alpha1 ${alpha1} -alpha2 ${alpha2} -alpha3 ${alpha3}"
 args+=" -o ${o} -ode ${ode} -ref ${ref}"
