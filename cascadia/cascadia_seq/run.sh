@@ -30,7 +30,7 @@ p=100
 # 1: enable forward operator (one solve)
 # 2: use forward operator to export p2o map
 #    (number of solves ~ number of parameters)
-fwd=1
+fwd=0
 
 # Configure adjoint solve
 # 0: disable adjoint operator
@@ -40,7 +40,7 @@ fwd=1
 adj=0
 # 0: write adjoint vectors in standard ordering
 # 1: write adjoint vectors in block-reverse ordering
-adj_reverse_order=0
+adj_reverse_order=1
 # If using adj=2, adj_vec specifies which vectors are generated
 # -1               : compute all adjoint vectors
 # 0, 1, .., n_obs-1: compute one particular adjoint vector
@@ -52,7 +52,7 @@ adj_vec=-1
 # 11: Laplacian prior (assemble + write to file)
 #  2: Bi-Laplacian prior (assemble)
 # 22: Bi-Laplacian prior (assemble + write to file)
-prior=0
+prior=1
 #  0: Write prior in standard indexing (time(outer), space(inner))
 #  1: Write prior in re-indexed dofs (space(outer), time(inner))
 prior_reindex=0
@@ -61,9 +61,9 @@ prior_reindex=0
 # alpha1 ~ |m|
 # alpha2 ~ |grad m|
 # alpha3 ~ |dm/dt|
-alpha1=1.0e-3
+alpha1=2.0e-5
 alpha2=1.0e-3
-alpha3=1.0e-5
+alpha3=1.0e-3
 
 # Polynomial order of approximation
 #   order_p = o   (scalar-valued H1 pressure space)
@@ -87,7 +87,7 @@ lump=true
 ref=0
 
 # Final time
-tf=10.0
+tf=50.0
 
 # Number of time steps
 nt=1000
@@ -101,7 +101,7 @@ param_rate=1
 # - only used for unknown solution
 # - must evenly divide the number of time steps
 # - must be a multiple of param_rate
-obs_rate=1
+obs_rate=2
 
 # Number of observers in x,y direction (uniformly placed)
 # choose: 2,3,5,9,17 [0.25  0.75 ]
@@ -118,13 +118,14 @@ hdf=true
 obs=true
 
 # Enable/disable writing paraview vis files
-vis=true
+vis=false
 
 # If vis files enabled, every n-th step they are written
 vs=10
 
 # Configure program arguments
-args=" -d ${d} -p ${p} -fwd ${fwd} -adj ${adj} -revadj ${adj_reverse_order}"
+args=" -d ${d} -p ${p} -fwd ${fwd} -adj ${adj} "
+args+=" -revadj ${adj_reverse_order} -adjvec ${adj_vec}"
 args+=" -prior ${prior} -indprior ${prior_reindex}"
 args+=" -alpha1 ${alpha1} -alpha2 ${alpha2} -alpha3 ${alpha3}"
 args+=" -o ${o} -ode ${ode} -ref ${ref}"

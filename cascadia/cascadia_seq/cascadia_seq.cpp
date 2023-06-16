@@ -51,6 +51,10 @@
 using namespace std;
 using namespace mfem;
 
+/// Temporary
+double EvalMisfit(Vector** &obs, Vector** &data, int obs_steps);
+double AddNoise(Vector** &obs, double rel_noise, int obs_steps);
+
 int main(int argc, char *argv[])
 {
    StopWatch chrono;
@@ -545,7 +549,7 @@ int main(int argc, char *argv[])
    // TEST: Create loads for all time-steps using GridFunctionCoefficients
    //       -> only used for unknown solutions
    GridFunction **params = nullptr;
-   bool test_store_load = false;
+   bool test_store_load = true;
    if (test_store_load && WaveSolution::IsUnknown() && fwd==1)
    {
       cout << "Storing p2o fwd load (parameter) via GridFunctionCoefficients." << endl << endl;
@@ -583,12 +587,15 @@ int main(int argc, char *argv[])
       double t = 0;
       for (int k = 0; k < param_steps; k++)
       {
-         m_gf = params[k];
-         param_dc->RegisterField("parameter", m_gf);
-         t = k*param_rate*dt;
-         param_dc->SetCycle(k*param_rate);
-         param_dc->SetTime(t * Cascadia::t0);
-         param_dc->Save();
+         if (k % 5 == 0)
+         {
+            m_gf = params[k];
+            param_dc->RegisterField("parameter", m_gf);
+            t = k*param_rate*dt;
+            param_dc->SetCycle(k*param_rate);
+            param_dc->SetTime(t * Cascadia::t0);
+            param_dc->Save();
+         }
       }
    }
    
@@ -625,7 +632,8 @@ int main(int argc, char *argv[])
       bool test_misfit = false; // unit test
       if (test_misfit)
       {
-         double misfit = wave_p2o->EvalMisfit(obs, obs);
+//         double misfit = wave_p2o->EvalMisfit(obs, obs);
+         double misfit = EvalMisfit(obs, obs, obs_steps);
          MFEM_VERIFY(abs(misfit) < 1.0e-14, "misfit > 0");
          
          Vector **noisy_obs = new Vector*[obs_steps];
@@ -635,8 +643,10 @@ int main(int argc, char *argv[])
             noisy_obs[k] = new Vector(tmp);
          }
          double rel_noise = 0.01;
-         double noise_var = wave_p2o->AddNoise(noisy_obs, rel_noise);
-         misfit = wave_p2o->EvalMisfit(obs, noisy_obs);
+//         double noise_var = wave_p2o->AddNoise(noisy_obs, rel_noise);
+//         misfit = wave_p2o->EvalMisfit(obs, noisy_obs);
+         double noise_var = AddNoise(noisy_obs, rel_noise, obs_steps);
+         misfit = EvalMisfit(obs, noisy_obs, obs_steps);
          
          cout << endl << "rel noise = " << rel_noise << endl;
          cout         << "noise var = " << noise_var << endl;
@@ -764,20 +774,20 @@ int main(int argc, char *argv[])
       // Activate one nodal dof (one sensor) at a time
       // to obtain one column of adjoint p2o map
       chrono.Clear();
+      int first_vec = 0;
+      int last_vec = n_obs;
+      if (adjvec >= 0)
+      {
+         first_vec = adjvec;
+         last_vec = adjvec+1;
+         if (last_vec > n_obs)
+         {
+            MFEM_WARNING("adjvec >= n_obs! Setting to n_obs-1.");
+            last_vec = n_obs;
+         }
+      }
       for (int k = obs_steps-m; k < obs_steps; k++) // do m := obs_steps to write all columns (not compact version)
       {
-         int first_vec = 0;
-         int last_vec = n_obs;
-         if (adjvec >= 0)
-         {
-            first_vec = adjvec;
-            last_vec = adjvec+1;
-            if (last_vec > n_obs)
-            {
-               MFEM_WARNING("adjvec >= n_obs! Setting to n_obs-1.");
-               last_vec = n_obs;
-            }
-         }
          for (int j = first_vec; j < last_vec; j++)
          {
             cout << endl << "+++ Adjoint solve number " << (k-(obs_steps-m))*n_obs+(j+1) << " / " << m*n_obs << endl << endl;
@@ -790,7 +800,7 @@ int main(int argc, char *argv[])
             (*(data[k]))[j] = 0.0;
          }
       }
-      cout << endl << m*n_obs << " adjoint solves took " << chrono.RealTime() << " seconds." << endl;
+      cout << endl << m*(last_vec-first_vec) << " adjoint solves took " << chrono.RealTime() << " seconds." << endl;
    }
    
    // 13. Prior
@@ -865,7 +875,7 @@ int main(int argc, char *argv[])
       cout << " reg_sum = " << reg_sum << endl;
       
       // TESTING PARAM I/O
-      bool test_param_io = true; // unit test
+      bool test_param_io = false; // unit test
       if (test_param_io)
       {
          // Make sure params has been initialized as GridFunction**
@@ -885,6 +895,7 @@ int main(int argc, char *argv[])
             }
          }
          
+         WaveIO::CreateDirectory(output_dir, nullptr, 0);
          string filename(output_dir);
          filename += (hdf) ? "/param_vec.h5" : "/param_vec.txt";
          
@@ -913,8 +924,49 @@ int main(int argc, char *argv[])
          delete[] params_in; params_in = nullptr;
       }
    }
+   
+   // 14. Create a noisy data vector from observations
+   bool noise_obs = true;
+   if (noise_obs)
+   {
+      if (!obs)
+      {
+         // Read observations from file
+         string filename(output_dir);
+         filename += (hdf) ? "/obs_vec.h5" : "/obs_vec.txt";
+         obs = wave_io.ObsFromFile(filename);
+      }
+//      double misfit = wave_p2o->EvalMisfit(obs, obs);
+      double misfit = EvalMisfit(obs, obs, obs_steps);
+      MFEM_VERIFY(abs(misfit) < 1.0e-14, "misfit > 0");
+      
+      Vector **noisy_obs = new Vector*[obs_steps];
+      for (int k = 0; k < obs_steps; k++)
+      {
+         Vector &tmp = *(obs[k]);
+         noisy_obs[k] = new Vector(tmp);
+      }
+      double rel_noise = 0.01;
+//      double noise_var = wave_p2o->AddNoise(noisy_obs, rel_noise);
+//      misfit = wave_p2o->EvalMisfit(obs, noisy_obs);
+      double noise_var = AddNoise(noisy_obs, rel_noise, obs_steps);
+      misfit = EvalMisfit(obs, noisy_obs, obs_steps);
+      
+      cout << endl << "rel noise = " << rel_noise << endl;
+      cout         << "noise var = " << noise_var << endl;
+      cout         << "   misfit = " << misfit << endl << endl;
+      
+      // Write observations to file
+      string filename(output_dir);
+      filename += (hdf) ? "/noisy_obs_vec.h5" : "/noisy_obs_vec.txt";
+//      wave_io.ObsToFile(filename, noisy_obs, rel_noise, noise_var);
+      wave_io.ObsToFile(filename, noisy_obs, rel_noise, 1.0);
+      
+      for (int k = 0; k < obs_steps; k++) { delete noisy_obs[k]; noisy_obs[k] = nullptr; }
+      delete[] noisy_obs; noisy_obs = nullptr;
+   }
 
-   // 14. Free the used memory.
+   // 15. Free the used memory.
    cout << endl << "cascadia_seq: freeing memory" << endl;
    if (params)
    {
@@ -953,4 +1005,49 @@ int main(int argc, char *argv[])
 
    cout << "cascadia_seq: all done." << endl << endl;
    return 0;
+}
+
+
+/// Evaluate misfit part of cost functional (between model observations and data)
+double EvalMisfit(Vector** &obs, Vector** &data, int obs_steps)
+{
+   double misfit = 0;
+   
+   for (int k = 0; k < obs_steps; k++)
+   {
+      Vector &obs_vec = *(obs[k]);
+      Vector &data_vec = *(data[k]);
+      Vector misfit_vec(obs_vec);
+      misfit_vec -= data_vec;
+      misfit += InnerProduct(misfit_vec, misfit_vec);
+   }
+   
+   return misfit;
+}
+   
+/// Add noise to observations
+double AddNoise(Vector** &obs, double rel_noise, int obs_steps)
+{
+   double max_val = 0.0;
+   for (int k = 0; k < obs_steps; k++)
+   {
+      Vector &obs_vec = *(obs[k]);
+      max_val = max(max_val, obs_vec.Normlinf());
+   }
+   double noise_std_dev = rel_noise * max_val;
+   
+   std::random_device rnd_dev;
+   std::default_random_engine rnd_gen(rnd_dev());
+   std::normal_distribution<double> distr(0.0, noise_std_dev);
+   
+   for (int k = 0; k < obs_steps; k++)
+   {
+      Vector &obs_vec = *(obs[k]);
+      for (int i = 0; i < obs_vec.Size(); i++)
+      {
+         obs_vec[i] += distr(rnd_gen);
+      }
+   }
+   
+   return noise_std_dev * noise_std_dev;
 }
