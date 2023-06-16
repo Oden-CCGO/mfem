@@ -209,11 +209,13 @@ void WaveIO::ObsToFile(const std::string &filename, Vector **obs,
       attr_id = H5Acreate(dset_id, "rel_noise", H5T_NATIVE_DOUBLE,
                           attr_dspace_id, H5P_DEFAULT, H5P_DEFAULT);
       status = H5Awrite(attr_id, H5T_NATIVE_DOUBLE, &rel_noise);
+      status = H5Aclose(attr_id);
       
       // - Attribute 6: noise_cov
       attr_id = H5Acreate(dset_id, "noise_cov", H5T_NATIVE_DOUBLE,
                           attr_dspace_id, H5P_DEFAULT, H5P_DEFAULT);
       status = H5Awrite(attr_id, H5T_NATIVE_DOUBLE, &noise_cov);
+      status = H5Aclose(attr_id);
       
       // - Attribute 7: reindex
       int reindex = 0;
