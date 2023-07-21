@@ -367,8 +367,21 @@ void WaveParamToObs::GetAdj(GridFunction** &adj) const
       // Extract output every "param_rate"-th step
       if (k % param_rate == 0)
       {
-         int l = k / param_rate;
-         int m = param_steps - l; // (param_steps-1) - (l-1);
+         int m;
+         if (WaveIO::adj_reverse_order) // block-reverse ordering
+         {
+            MFEM_VERIFY (obs_rate % param_rate==0,
+                        "obs_rate must be a multiple of param_rate.");
+            int r = obs_rate / param_rate; // size of each block
+            int l = k / param_rate - 1;
+            int b = l / r; // block
+            m = b * r + (r-1) - (l % r);
+         }
+         else
+         {
+            int l = k / param_rate;
+            m = param_steps-l;
+         }
          p_gf.MakeRef(wave_adj->PressureFESpace(), x.GetBlock(1), 0);
          wave_map.StateToParam(p_gf, *(adj[m]));
          // TODO: multiply adj[m] with "-c2"
