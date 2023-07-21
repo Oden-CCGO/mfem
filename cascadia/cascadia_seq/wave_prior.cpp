@@ -15,17 +15,19 @@ WavePrior::WavePrior(FiniteElementSpace &fes_m_,
                      double alpha1_, double alpha2_, double alpha3_)
    : Operator(height_, 0.0),
      fes_m(fes_m_),
-     M(nullptr), m_var(nullptr), K(nullptr), k_var(nullptr),
-     D(nullptr), C(nullptr), L(nullptr), B(nullptr), block_offsets(param_steps_+1),
+     M(nullptr), m_var(nullptr), G(nullptr), M_prec(nullptr), BlockM_prec(nullptr),
+     K(nullptr), k_var(nullptr), D(nullptr), C(nullptr), L(nullptr),
+     B(nullptr), block_offsets(param_steps_+1),
      alpha1(nullptr), alpha2(nullptr), alpha3(nullptr),
      type(type_), time_step(time_step_), dt(time_step_*param_rate_),
-     param_rate(param_rate_), param_steps(param_steps_)
+     param_rate(param_rate_), param_steps(param_steps_),
+     z(height_)
 {
    StopWatch chrono;
    chrono.Start();
    
    // Preliminary
-   MFEM_VERIFY(type==1, "Only Laplacian prior is implemented.");
+   MFEM_VERIFY(type==1 || type==2, "Invalid prior type.");
    
    MFEM_VERIFY(alpha1_>=0.0, "alpha1 < 0.");
    MFEM_VERIFY(alpha2_>=0.0, "alpha2 < 0.");
@@ -130,6 +132,37 @@ WavePrior::WavePrior(FiniteElementSpace &fes_m_,
          B->SetBlock(i, i, D);
       }
    }
+   
+   // 3c. If needed, create abstract block mass matrix
+   if (type == 2)
+   {
+      // TODO: add option of (diagonal) lumped mass matrix
+      G = new BlockMatrix(block_offsets);
+      
+      M_prec = new DSmoother(*M);
+      M_prec->iterative_mode = false;
+      
+      for (int i = 0; i < param_steps; i++)
+      {
+         // set diagonal blocks
+         G->SetBlock(i, i, M);
+         // set block-diagonal smoother
+         BlockM_prec->SetDiagonalBlock(i, M_prec);
+      }
+
+      // Mass matrix solver
+      const double rel_tol = 1e-8;
+      const double abs_tol = 1e-14;
+      const int max_iter = 30;
+
+      M_solver.iterative_mode = false;
+      M_solver.SetRelTol(rel_tol);
+      M_solver.SetAbsTol(abs_tol);
+      M_solver.SetMaxIter(max_iter);
+      M_solver.SetPrintLevel(0);
+      M_solver.SetPreconditioner(*BlockM_prec);
+      M_solver.SetOperator(*G);
+   }
 
    cout << "Timer: Space-time matrix assembly (prior): "
         << chrono.RealTime() << " seconds." << endl;
@@ -137,7 +170,39 @@ WavePrior::WavePrior(FiniteElementSpace &fes_m_,
 
 void WavePrior::Mult(const Vector &x, Vector &y) const
 {
-   B->Mult(x, y);
+   // Laplacian prior
+   if (type == 1)
+   {
+      B->Mult(x, y);
+   }
+   // Bi-Laplacian prior: R^{1/2}*M^{-1}*R^{1/2}
+   else if (type == 2)
+   {
+      B->Mult(x, y);
+      M_solver.Mult(y, z);
+      B->Mult(z, y);
+   }
+   else
+   {
+      MFEM_WARNING("Invalid prior type.");
+   }
+}
+
+void WavePrior::MultMass(const Vector &x, Vector &y) const
+{
+   if (G)
+   {
+      G->Mult(x,y);
+   }
+   else
+   {
+      BlockMatrix A(block_offsets);
+      for (int i = 0; i < param_steps; i++)
+      {
+         A.SetBlock(i, i, M);
+      }
+      A.Mult(x, y);
+   }
 }
 
 void WavePrior::MultReg1(const Vector &x, Vector &y) const
@@ -267,15 +332,21 @@ SparseMatrix* WavePrior::ReindexCSR(const SparseMatrix *R) const
    return new SparseMatrix(I, J, A, size, size);
 }
 
-void WavePrior::PriorToFile(bool binary)
+void WavePrior::MatrixToFile(bool binary, bool mass)
 {
+   if (mass && !G)
+   {
+      MFEM_WARNING("No mass matrix available. Returning.");
+      return;
+   }
+   
    StopWatch chrono;
    chrono.Start();
 
    // Get global sparse matrix from an abstract BlockMatrix
    // note: copies memory internally
    chrono.Clear();
-   SparseMatrix *R = B->CreateMonolithic();
+   SparseMatrix *R = (mass) ? G->CreateMonolithic() : B->CreateMonolithic();
    cout << "Timer: Creating csr matrix (prior)       : " << chrono.RealTime() << " seconds." << endl;
    
    // Re-index csr matrix (ordering of dofs)
@@ -301,7 +372,8 @@ void WavePrior::PriorToFile(bool binary)
    // Create directory
    string prefix, suffix;
    
-   string rel_path = WaveIO::output_dir + "/prior/";
+   string rel_path = WaveIO::output_dir;
+   rel_path += (mass) ? "/mass/" : "/prior/";
    string filename = "csr";
    if (binary) { rel_path += "binary"; suffix = ".h5"; }
    else        { rel_path += "text"; suffix = ".txt"; }
@@ -309,17 +381,21 @@ void WavePrior::PriorToFile(bool binary)
    WaveIO::CreateDirectory(rel_path, nullptr, 0);
    
    // Write meta file with info about prior
-   string meta_filename = rel_path + "/meta_prior";
+   string meta_filename = rel_path;
+   meta_filename += (mass) ? "/meta_mass" : "/meta_prior";
    cout << endl << "PriorToFile: writing to " << meta_filename << endl;
    ofstream meta_file;
    meta_file.open(meta_filename);
    meta_file << param_steps << endl;          // <int> number of blocks
    meta_file << R->Height() << endl;          // <int> size of the matrix
    meta_file << R->NumNonZeroElems() << endl; // <int> number of non-zero entries
-   meta_file << type << endl;                 // type of prior (1: Laplacian; 2 Bi-Laplacian)
-   meta_file << alpha1->constant << endl;     // <double> (regularization parameter for |m|)
-   meta_file << alpha2->constant << endl;     // <double> (regularization parameter for |grad m|)
-   meta_file << alpha3->constant << endl;     // <double> (regularization parameter for |dm/dt|)
+   if (!mass)
+   {
+      meta_file << type << endl;                 // type of prior (1: Laplacian; 2 Bi-Laplacian)
+      meta_file << alpha1->constant << endl;     // <double> (regularization parameter for |m|)
+      meta_file << alpha2->constant << endl;     // <double> (regularization parameter for |grad m|)
+      meta_file << alpha3->constant << endl;     // <double> (regularization parameter for |dm/dt|)
+   }
    meta_file << filename << endl;             // <string> filename for csr matrix file
    meta_file << suffix << endl;               // <string> suffix for csr matrix file (.txt or .h5)
    meta_file << reindex << endl;              // <bool> specifies whether csr matrix was re-indexed
@@ -383,6 +459,8 @@ void WavePrior::PriorToFile(bool binary)
       
       status = H5Aclose(attr_id);
       status = H5Sclose(attr_dspace_id);
+      
+      // TODO: write mass matrix attribute indicating if "lumped"
 
       // Close datasets
       status = H5Dclose(I_dset_id);
@@ -413,11 +491,24 @@ void WavePrior::PriorToFile(bool binary)
    delete R;
 }
 
+void WavePrior::PriorToFile(bool binary)
+{
+   MatrixToFile(binary, false);
+   if (type == 2)
+   {
+      cout << endl << "Bi-Laplacian prior: also writing mass matrix to file..." << endl << endl;
+      MatrixToFile(binary, true);
+   }
+}
+
 WavePrior::~WavePrior()
 {
    delete m_var;
    delete k_var;
+   delete M_prec;
+   delete BlockM_prec;
    
+   delete G;
    delete C;
    delete L;
    delete D;

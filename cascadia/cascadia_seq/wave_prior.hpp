@@ -28,6 +28,11 @@ protected:
    SparseMatrix *M;     // mass matrix (fe space)
    BilinearForm *m_var; // variational form (fe space)
    
+   BlockMatrix *G;      // block mass matrix (space/time)
+   Solver *M_prec;      // mass matrix preconditioner (fe space)
+   BlockDiagonalPreconditioner *BlockM_prec; // block mass matrix preconditioner (space/time)
+   CGSolver M_solver;   // mass matrix solver (space/time)
+   
    SparseMatrix *K;     // stiffness matrix (fe space)
    BilinearForm *k_var; // variational form (fe space)
    
@@ -49,8 +54,12 @@ protected:
    const double time_step, dt;
    const int param_rate, param_steps; // parameter frequency; dt := time_step * param_rate
    
+   mutable Vector z; // auxiliary vector
+   
    /// Reindex csr matrix dof ordering from time->space to space->time (outer->inner)
    SparseMatrix* ReindexCSR(const SparseMatrix *R) const;
+   /// Auxiliary routine for I/O
+   void MatrixToFile(bool binary, bool mass);
 public:
    WavePrior(FiniteElementSpace &fes_m_,
              int height_, int type_,
@@ -59,6 +68,8 @@ public:
 
    virtual void Mult(const Vector &x, Vector &y) const ;
    
+   /// Apply mass matrix
+   virtual void MultMass(const Vector &x, Vector &y) const ;
    /// Apply first part of prior/regularization only - alpha1
    virtual void MultReg1(const Vector &x, Vector &y) const ;
    /// Apply second part of prior/regularization only - alpha2
