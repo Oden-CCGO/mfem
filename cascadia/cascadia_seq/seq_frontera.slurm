@@ -1,9 +1,9 @@
 #!/bin/bash
 #----------------------------------------------------
 # Example Slurm job script
-# for TACC Stampede2 SKX nodes
+# for TACC Frontera CLX nodes
 #
-#   *** Hybrid Job on SKX Normal Queue ***
+#   *** Hybrid Job on CLX Normal Queue ***
 #
 #       This sample script specifies:
 #         10 nodes (capital N)
@@ -15,7 +15,7 @@
 # Notes:
 #
 #   -- Launch this script by executing
-#      "sbatch fiber.slurm" on Stampede2 login node.
+#      "sbatch seq_frontera.slurm" on Frontera login node.
 #
 #   -- Check current queue with: "squeue -u sh43394"
 #

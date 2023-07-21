@@ -15,7 +15,7 @@
 # Notes:
 #
 #   -- Launch this script by executing
-#      "sbatch fiber.slurm" on Stampede2 login node.
+#      "sbatch seq_stampede.slurm" on Stampede2 login node.
 #
 #   -- Check current queue with: "squeue -u sh43394"
 #
