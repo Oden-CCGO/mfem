@@ -154,7 +154,8 @@ WaveOperator::WaveOperator(FiniteElementSpace &fes_u_, FiniteElementSpace &fes_p
    // Boundary integral for impedance BC
    if (WaveSolution::IsUnknown())
    {
-      ConstantCoefficient c1c2(sqrt(c1*c2)); // non-dim. wavespeed
+      double a = (adj) ? -1.0 : 1.0; // sign change in adjoint absorbing BC
+      ConstantCoefficient c1c2(a*sqrt(c1*c2)); // non-dim. wavespeed
       kVarf_imp = new BilinearForm(&fes_p);
       kVarf_imp->AddBoundaryIntegrator(new MassIntegrator(c1c2), absorb_bdr);
       kVarf_imp->Assemble();
