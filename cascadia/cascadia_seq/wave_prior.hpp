@@ -25,15 +25,16 @@ class WavePrior : public Operator
 protected:
    FiniteElementSpace &fes_m;   // parameter FE space
    
-   SparseMatrix *M;     // mass matrix (fe space)
+   SparseMatrix *M;     // scaled mass matrix (fe space)
    BilinearForm *m_var; // variational form (fe space)
    
+   SparseMatrix *GM;    // unscaled mass matrix (fe space)
    BlockMatrix *G;      // block mass matrix (space/time)
    Solver *M_prec;      // mass matrix preconditioner (fe space)
    BlockDiagonalPreconditioner *BlockM_prec; // block mass matrix preconditioner (space/time)
    CGSolver M_solver;   // mass matrix solver (space/time)
    
-   SparseMatrix *K;     // stiffness matrix (fe space)
+   SparseMatrix *K;     // scaled stiffness matrix (fe space)
    BilinearForm *k_var; // variational form (fe space)
    
    SparseMatrix *C; // sparse matrix (auxiliary)

@@ -44,6 +44,7 @@ int problem, n_steps;
 bool manufactured, stationary;
 double t_final, dt, c1, c2, c3;
 double xmin,xmax,ymin,ymax,zmin,zmax;
+int nx,ny,nz;
 
 /// Implementation of WaveSolution:
 /// - initial conditions
@@ -503,6 +504,11 @@ void PrintInfo()
                          << "," << ymax*(Cascadia::l0/1000) << ")" << std::endl;
    std::cout << "   (zmin,zmax) = (" << zmin*(Cascadia::l0/1000)
                          << "," << zmax*(Cascadia::l0/1000) << ")" << std::endl;
+   
+   std::cout << "- Number of mesh elements:" << std::endl;
+   std::cout << "   nx = " << nx << std::endl;
+   std::cout << "   ny = " << ny << std::endl;
+   std::cout << "   nz = " << nz << std::endl;
 }
    
 double LinearFunction(const mfem::Vector &x)

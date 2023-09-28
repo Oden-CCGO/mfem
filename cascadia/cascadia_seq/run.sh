@@ -37,10 +37,10 @@ fwd=0
 # 1: enable adjoint operator (one solve)
 # 2: use adjoint operator to export adjoint p2o map
 #    (number of solves ~ number of sensors)
-adj=0
+adj=2
 # 0: write adjoint vectors in standard ordering
 # 1: write adjoint vectors in block-reverse ordering
-adj_reverse_order=1
+adj_reverse_order=0
 # If using adj=2, adj_vec specifies which vectors are generated
 # -1               : compute all adjoint vectors
 # 0, 1, .., n_obs-1: compute one particular adjoint vector
@@ -52,18 +52,18 @@ adj_vec=-1
 # 11: Laplacian prior (assemble + write to file)
 #  2: Bi-Laplacian prior (assemble)
 # 22: Bi-Laplacian prior (assemble + write to file)
-prior=1
+prior=0
 #  0: Write prior in standard indexing (time(outer), space(inner))
 #  1: Write prior in re-indexed dofs (space(outer), time(inner))
-prior_reindex=0
+prior_reindex=1
 
 # Regularization parameters
 # alpha1 ~ |m|
 # alpha2 ~ |grad m|
 # alpha3 ~ |dm/dt|
-alpha1=2.0e-5
-alpha2=1.0e-3
-alpha3=1.0e-3
+alpha1=1.0e-5
+alpha2=1.0e-2
+alpha3=0
 
 # Polynomial order of approximation
 #   order_p = o   (scalar-valued H1 pressure space)
@@ -87,10 +87,10 @@ lump=true
 ref=0
 
 # Final time
-tf=50.0
+tf=1.0
 
 # Number of time steps
-nt=1000
+nt=20
 
 # Parameter is defined for every n-th time step
 # - only used for unknown solution
@@ -106,8 +106,8 @@ obs_rate=2
 # Number of observers in x,y direction (uniformly placed)
 # choose: 2,3,5,9,17 [0.25  0.75 ]
 # choose: 2,3,7,13   [0.125 0.875]
-nx_obs=3
-ny_obs=5
+nx_obs=2
+ny_obs=3
 
 # Specify format for output data
 # hdf = true  --> binary (HDF5)
@@ -121,10 +121,10 @@ obs=true
 vis=false
 
 # If vis files enabled, every n-th step they are written
-vs=10
+vs=1
 
 # Configure program arguments
-args=" -d ${d} -p ${p} -fwd ${fwd} -adj ${adj} "
+args=" -d ${d} -p ${p} -fwd ${fwd} -adj ${adj}"
 args+=" -revadj ${adj_reverse_order} -adjvec ${adj_vec}"
 args+=" -prior ${prior} -indprior ${prior_reindex}"
 args+=" -alpha1 ${alpha1} -alpha2 ${alpha2} -alpha3 ${alpha3}"

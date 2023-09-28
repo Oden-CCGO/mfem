@@ -55,6 +55,7 @@ namespace WaveSolution
    extern double c1,c2,c3; // non-dimensional scalar coefficients
    
    extern double xmin,xmax,ymin,ymax,zmin,zmax; // mesh dimensions
+   extern int nx,ny,nz; // number of elements in uniform grid
    
    // Functions returning initial values at a point x
    extern void uInitial(const mfem::Vector &x, mfem::Vector &u);

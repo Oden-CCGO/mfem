@@ -215,6 +215,9 @@ int main(int argc, char *argv[])
    if (strlen(mesh_file) != 0)
    {
       mesh = new Mesh(mesh_file, 1, 1);
+      WaveSolution::nx = 1;
+      WaveSolution::ny = 1;
+      WaveSolution::nz = 1;
    }
    else
    {
@@ -223,8 +226,8 @@ int main(int argc, char *argv[])
       int nz = 1; double sz = 1.0;
       if (problem >= 100)
       {
-         sx = 8.0; nx = 16; int xfac =  8;
-         sy = 8.0; ny = 16; int yfac = 16;
+         sx = 8.0; nx = 16; int xfac = 1; //nx*=2;
+         sy = 8.0; ny = 16; int yfac = 2; //ny*=2;
          sz = 4.0; nz = 16;
          sx *= xfac; nx *= xfac;
          sy *= yfac; ny *= yfac;
@@ -236,6 +239,9 @@ int main(int argc, char *argv[])
       mesh = new Mesh(Mesh::MakeCartesian3D(
                       nx, ny, nz, Element::HEXAHEDRON,
                       sx, sy, sz));
+      WaveSolution::nx = nx;
+      WaveSolution::ny = ny;
+      WaveSolution::nz = nz;
    }
    const int dim = mesh->Dimension();
    
@@ -402,10 +408,13 @@ int main(int argc, char *argv[])
    // 6d. Create mappings between state space and data space:
    //     Map from pressure variable to pointwise observational data, and its transpose.
 
+
    MFEM_VERIFY(nx_obs > 1 && ny_obs > 1, "nx_obs, ny_obs");
    //     Set number of sensor locations
-   const double xx_pts_min = 0.25*WaveSolution::xmax;
-   const double xx_pts_max = 0.75*WaveSolution::xmax;
+//   const double xx_pts_min = 0.25*WaveSolution::xmax;
+//   const double xx_pts_max = 0.75*WaveSolution::xmax;
+   const double xx_pts_min = 0.375*WaveSolution::xmax;
+   const double xx_pts_max = 0.625*WaveSolution::xmax;
    const double xx_dist    = (xx_pts_max-xx_pts_min) / (nx_obs-1);
    const double yy_pts_min = 0.25*WaveSolution::ymax;
    const double yy_pts_max = 0.75*WaveSolution::ymax;
@@ -425,6 +434,13 @@ int main(int argc, char *argv[])
          sensor_pts[j*nx_obs+i][2] = 0;
       }
    }
+
+   // TODO: TEST
+//   const int n_obs = 1;
+//   double sensor_pts[n_obs][dim];
+//   sensor_pts[0][0] = 0.125*WaveSolution::xmax;
+//   sensor_pts[0][1] = 0.5*WaveSolution::ymax;
+//   sensor_pts[0][2] = 0;
    
    //     Create dense matrix with coordinates of observation points
    DenseMatrix pts_mat(&(sensor_pts[0][0]), dim, n_obs);
@@ -549,7 +565,7 @@ int main(int argc, char *argv[])
    // TEST: Create loads for all time-steps using GridFunctionCoefficients
    //       -> only used for unknown solutions
    GridFunction **params = nullptr;
-   bool test_store_load = true;
+   bool test_store_load = false;
    if (test_store_load && WaveSolution::IsUnknown() && fwd==1)
    {
       cout << "Storing p2o fwd load (parameter) via GridFunctionCoefficients." << endl << endl;
@@ -572,6 +588,7 @@ int main(int argc, char *argv[])
       }
       string filename(output_dir);
       filename += (hdf) ? "/param_vec.h5" : "/param_vec.txt";
+      cout << endl << "Reading parameter field from file: " << filename << endl;
       params = wave_io.ParamFromFile(filename);
    }
    
@@ -805,7 +822,7 @@ int main(int argc, char *argv[])
    
    // 13. Prior
    int prior_type = prior%10;
-   MFEM_VERIFY(prior_type <= 1, "Bi-Laplacian Prior not yet implemented.");
+   MFEM_VERIFY(prior_type <= 2, "Invalid prior type.");
    if (prior)
    {
       height = n_param * param_steps;
@@ -926,7 +943,7 @@ int main(int argc, char *argv[])
    }
    
    // 14. Create a noisy data vector from observations
-   bool noise_obs = true;
+   bool noise_obs = false;
    if (noise_obs)
    {
       if (!obs)

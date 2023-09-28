@@ -15,7 +15,8 @@ WavePrior::WavePrior(FiniteElementSpace &fes_m_,
                      double alpha1_, double alpha2_, double alpha3_)
    : Operator(height_, 0.0),
      fes_m(fes_m_),
-     M(nullptr), m_var(nullptr), G(nullptr), M_prec(nullptr), BlockM_prec(nullptr),
+     M(nullptr), m_var(nullptr),
+     GM(nullptr), G(nullptr), M_prec(nullptr), BlockM_prec(nullptr),
      K(nullptr), k_var(nullptr), D(nullptr), C(nullptr), L(nullptr),
      B(nullptr), block_offsets(param_steps_+1),
      alpha1(nullptr), alpha2(nullptr), alpha3(nullptr),
@@ -137,15 +138,19 @@ WavePrior::WavePrior(FiniteElementSpace &fes_m_,
    if (type == 2)
    {
       // TODO: add option of (diagonal) lumped mass matrix
-      G = new BlockMatrix(block_offsets);
+      GM = new SparseMatrix(*M);
+      *GM *= (1/alpha1_);
       
-      M_prec = new DSmoother(*M);
+      M_prec = new DSmoother(*GM);
       M_prec->iterative_mode = false;
+      
+      G = new BlockMatrix(block_offsets);
+      BlockM_prec = new BlockDiagonalPreconditioner(block_offsets);
       
       for (int i = 0; i < param_steps; i++)
       {
          // set diagonal blocks
-         G->SetBlock(i, i, M);
+         G->SetBlock(i, i, GM);
          // set block-diagonal smoother
          BlockM_prec->SetDiagonalBlock(i, M_prec);
       }
@@ -196,12 +201,17 @@ void WavePrior::MultMass(const Vector &x, Vector &y) const
    }
    else
    {
+      SparseMatrix *tmp = new SparseMatrix(*M);
+      *tmp *= (1/alpha1->constant);
+   
       BlockMatrix A(block_offsets);
       for (int i = 0; i < param_steps; i++)
       {
-         A.SetBlock(i, i, M);
+         A.SetBlock(i, i, tmp);
       }
       A.Mult(x, y);
+      
+      delete tmp;
    }
 }
 
@@ -508,6 +518,7 @@ WavePrior::~WavePrior()
    delete M_prec;
    delete BlockM_prec;
    
+   delete GM;
    delete G;
    delete C;
    delete L;

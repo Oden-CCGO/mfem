@@ -99,8 +99,8 @@ void WaveIO::MetaToFile(bool adj)
          const DenseMatrix *sensors_pts = wave_obs.GetSensorCoords();
          for (int i = 0; i < nr_sensors; i++)
          {
-            meta_file << (*sensors_pts)(0,i) << endl;
-            meta_file << (*sensors_pts)(1,i) << endl;
+            meta_file << (*sensors_pts)(0,i)*(Cascadia::l0/1000) << endl;
+            meta_file << (*sensors_pts)(1,i)*(Cascadia::l0/1000) << endl;
          }
       }
       meta_file.close();
@@ -181,22 +181,22 @@ void WaveIO::ObsToFile(const std::string &filename, Vector **obs,
       hid_t attr_dspace_id = H5Screate(H5S_SCALAR);
       hid_t attr_id;
       
-      // - Attribute 1: obs_steps
-      attr_id = H5Acreate(dset_id, "obs_steps", H5T_NATIVE_INT,
-                          attr_dspace_id, H5P_DEFAULT, H5P_DEFAULT);
-      status = H5Awrite(attr_id, H5T_NATIVE_INT, &obs_steps);
-      status = H5Aclose(attr_id);
-      
-      // - Attribute 2: dt
+      // - Attribute 1: dt
       attr_id = H5Acreate(dset_id, "dt", H5T_NATIVE_DOUBLE,
                           attr_dspace_id, H5P_DEFAULT, H5P_DEFAULT);
       status = H5Awrite(attr_id, H5T_NATIVE_DOUBLE, &dt);
       status = H5Aclose(attr_id);
       
-      // - Attribute 3: obs_rate
+      // - Attribute 2: obs_rate
       attr_id = H5Acreate(dset_id, "obs_rate", H5T_NATIVE_INT,
                           attr_dspace_id, H5P_DEFAULT, H5P_DEFAULT);
       status = H5Awrite(attr_id, H5T_NATIVE_INT, &obs_rate);
+      status = H5Aclose(attr_id);
+      
+      // - Attribute 3: obs_steps
+      attr_id = H5Acreate(dset_id, "obs_steps", H5T_NATIVE_INT,
+                          attr_dspace_id, H5P_DEFAULT, H5P_DEFAULT);
+      status = H5Awrite(attr_id, H5T_NATIVE_INT, &obs_steps);
       status = H5Aclose(attr_id);
       
       // - Attribute 4: n_obs
@@ -205,23 +205,23 @@ void WaveIO::ObsToFile(const std::string &filename, Vector **obs,
       status = H5Awrite(attr_id, H5T_NATIVE_INT, &n_obs);
       status = H5Aclose(attr_id);
       
-      // - Attribute 5: rel_noise
+      // - Attribute 5: reindex
+      int reindex = 0;
+      attr_id = H5Acreate(dset_id, "reindex", H5T_NATIVE_INT,
+                          attr_dspace_id, H5P_DEFAULT, H5P_DEFAULT);
+      status = H5Awrite(attr_id, H5T_NATIVE_INT, &reindex);
+      status = H5Aclose(attr_id);
+      
+      // - Attribute 6: rel_noise
       attr_id = H5Acreate(dset_id, "rel_noise", H5T_NATIVE_DOUBLE,
                           attr_dspace_id, H5P_DEFAULT, H5P_DEFAULT);
       status = H5Awrite(attr_id, H5T_NATIVE_DOUBLE, &rel_noise);
       status = H5Aclose(attr_id);
       
-      // - Attribute 6: noise_cov
+      // - Attribute 7: noise_cov
       attr_id = H5Acreate(dset_id, "noise_cov", H5T_NATIVE_DOUBLE,
                           attr_dspace_id, H5P_DEFAULT, H5P_DEFAULT);
       status = H5Awrite(attr_id, H5T_NATIVE_DOUBLE, &noise_cov);
-      status = H5Aclose(attr_id);
-      
-      // - Attribute 7: reindex
-      int reindex = 0;
-      attr_id = H5Acreate(dset_id, "reindex", H5T_NATIVE_INT,
-                          attr_dspace_id, H5P_DEFAULT, H5P_DEFAULT);
-      status = H5Awrite(attr_id, H5T_NATIVE_INT, &reindex);
       status = H5Aclose(attr_id);
       
       status = H5Sclose(attr_dspace_id);
@@ -242,6 +242,7 @@ void WaveIO::ObsToFile(const std::string &filename, Vector **obs,
             }
          }
          status = H5Dwrite(dset_id, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, dset_data);
+         delete[] dset_data;
       }
       else
       {
@@ -277,7 +278,44 @@ void WaveIO::ObsToFile(const std::string &filename, Vector **obs,
 
       // Close dataspace
       status = H5Sclose(dspace_id);
+      
+      // Write sensor locations (x,y) into new datasets
+      const int nr_sensors = wave_obs.GetNrSensors();
+      MFEM_VERIFY(n_obs == nr_sensors, "nr_sensors");
+      
+      // Create dataspace
+      rank = 1;
+      ddim = n_obs;
+      dspace_id = H5Screate_simple(rank, &ddim, NULL);
+      
+      // Create datasets
+      hid_t dset_xid, dset_yid;
+      dset_xid = H5Dcreate(file_id, "sensors_xpts", H5T_NATIVE_DOUBLE, dspace_id,
+                           H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+      dset_yid = H5Dcreate(file_id, "sensors_ypts", H5T_NATIVE_DOUBLE, dspace_id,
+                           H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+      
+      // Write datasets
+      double *dset_xdata = new double[n_obs];
+      double *dset_ydata = new double[n_obs];
+      const DenseMatrix *sensors_pts = wave_obs.GetSensorCoords();
+      for (int i = 0; i < nr_sensors; i++)
+      {
+         dset_xdata[i] = (*sensors_pts)(0,i)*(Cascadia::l0/1000);
+         dset_ydata[i] = (*sensors_pts)(1,i)*(Cascadia::l0/1000);
+      }
+      status = H5Dwrite(dset_xid, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, dset_xdata);
+      status = H5Dwrite(dset_yid, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, dset_ydata);
+      delete[] dset_xdata;
+      delete[] dset_ydata;
 
+      // Close datasets
+      status = H5Dclose(dset_xid);
+      status = H5Dclose(dset_yid);
+
+      // Close dataspace
+      status = H5Sclose(dspace_id);
+      
       // Close file
       status = H5Fclose(file_id);
       if (status < 0) { MFEM_WARNING("H5Fclose < 0"); }
@@ -322,6 +360,54 @@ Vector** WaveIO::ObsFromFile(const std::string &filename)
       // Open existing dataset
       hid_t dset_id;
       dset_id = H5Dopen(file_id, "/vec", H5P_DEFAULT);
+      
+      // Verify parameter file attributes
+      hid_t attr_id;
+      const double eps = 1.0e-10;
+      
+      // - Attribute 1: dt
+      double val;
+      attr_id = H5Aopen(dset_id, "dt", H5P_DEFAULT);
+      status = H5Aread(attr_id, H5T_NATIVE_DOUBLE, &val);
+      status = H5Aclose(attr_id);
+      MFEM_VERIFY(abs(dt-val) < eps, "dt");
+      
+      // - Attribute 2: obs_rate
+      int attr_val;
+      attr_id = H5Aopen(dset_id, "obs_rate", H5P_DEFAULT);
+      status = H5Aread(attr_id, H5T_NATIVE_INT, &attr_val);
+      status = H5Aclose(attr_id);
+      MFEM_VERIFY(obs_rate == attr_val, "obs_rate");
+
+      // - Attribute 3: obs_steps
+      attr_id = H5Aopen(dset_id, "obs_steps", H5P_DEFAULT);
+      status = H5Aread(attr_id, H5T_NATIVE_INT, &attr_val);
+      status = H5Aclose(attr_id);
+      MFEM_VERIFY(obs_steps == attr_val, "obs_steps");
+      
+      // - Attribute 4: n_obs
+      attr_id = H5Aopen(dset_id, "n_obs", H5P_DEFAULT);
+      status = H5Aread(attr_id, H5T_NATIVE_INT, &attr_val);
+      status = H5Aclose(attr_id);
+      MFEM_VERIFY(n_obs == attr_val, "n_obs");
+      
+      // - Attribute 5: reindex
+      attr_id = H5Aopen(dset_id, "reindex", H5P_DEFAULT);
+      status = H5Aread(attr_id, H5T_NATIVE_INT, &attr_val);
+      status = H5Aclose(attr_id);
+      MFEM_VERIFY(attr_val == 0, "reindex");
+      
+      // - Attribute 6: rel_noise
+      attr_id = H5Aopen(dset_id, "rel_noise", H5P_DEFAULT);
+      status = H5Aread(attr_id, H5T_NATIVE_DOUBLE, &val);
+      status = H5Aclose(attr_id);
+      cout << "ObsFromFile: rel_noise = " << val << endl;
+      
+      // - Attribute 7: noise_cov
+      attr_id = H5Aopen(dset_id, "noise_cov", H5P_DEFAULT);
+      status = H5Aread(attr_id, H5T_NATIVE_DOUBLE, &val);
+      status = H5Aclose(attr_id);
+      cout << "ObsFromFile: noise_cov = " << val << endl;
 
       // Read dataset
       if (memcpy)
@@ -341,6 +427,7 @@ Vector** WaveIO::ObsFromFile(const std::string &filename)
                tmp[i] = dset_data[k*n_obs+i];
             }
          }
+         delete[] dset_data;
       }
       else
       {
@@ -382,6 +469,36 @@ Vector** WaveIO::ObsFromFile(const std::string &filename)
 
       // Close dataset
       status = H5Dclose(dset_id);
+      
+      // Read sensor locations (x,y)
+      const int nr_sensors = wave_obs.GetNrSensors();
+      MFEM_VERIFY(n_obs == nr_sensors, "nr_sensors");
+      
+      // Open datasets
+      hid_t dset_xid, dset_yid;
+      dset_xid = H5Dopen(file_id, "/sensors_xpts", H5P_DEFAULT);
+      dset_yid = H5Dopen(file_id, "/sensors_ypts", H5P_DEFAULT);
+      
+      // Read datasets
+      double *dset_xdata = new double[n_obs];
+      double *dset_ydata = new double[n_obs];
+      status = H5Dread(dset_xid, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, dset_xdata);
+      status = H5Dread(dset_yid, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, dset_ydata);
+
+      const DenseMatrix *sensors_pts = wave_obs.GetSensorCoords();
+      for (int i = 0; i < nr_sensors; i++)
+      {
+         double xval = dset_xdata[i] / (Cascadia::l0/1000);
+         double yval = dset_ydata[i] / (Cascadia::l0/1000);
+         MFEM_VERIFY(abs((*sensors_pts)(0,i)-xval) < eps, "sensors_xpts");
+         MFEM_VERIFY(abs((*sensors_pts)(1,i)-yval) < eps, "sensors_ypts");
+      }
+      delete[] dset_xdata;
+      delete[] dset_ydata;
+
+      // Close datasets
+      status = H5Dclose(dset_xid);
+      status = H5Dclose(dset_yid);
 
       // Close file
       status = H5Fclose(file_id);
@@ -440,23 +557,88 @@ void WaveIO::ParamToFile(const std::string &filename, GridFunction **param)
       hid_t attr_dspace_id = H5Screate(H5S_SCALAR);
       hid_t attr_id;
       
-      // - Attribute 1: param_steps
+      // - Attribute 1: dt
+      attr_id = H5Acreate(dset_id, "dt", H5T_NATIVE_DOUBLE,
+                          attr_dspace_id, H5P_DEFAULT, H5P_DEFAULT);
+      status = H5Awrite(attr_id, H5T_NATIVE_DOUBLE, &dt);
+      status = H5Aclose(attr_id);
+      
+      // - Attribute 2: param_rate
+      attr_id = H5Acreate(dset_id, "param_rate", H5T_NATIVE_INT,
+                          attr_dspace_id, H5P_DEFAULT, H5P_DEFAULT);
+      status = H5Awrite(attr_id, H5T_NATIVE_INT, &param_rate);
+      status = H5Aclose(attr_id);
+      
+      // - Attribute 3: param_steps
       attr_id = H5Acreate(dset_id, "param_steps", H5T_NATIVE_INT,
                           attr_dspace_id, H5P_DEFAULT, H5P_DEFAULT);
       status = H5Awrite(attr_id, H5T_NATIVE_INT, &param_steps);
       status = H5Aclose(attr_id);
       
-      // - Attribute 2: n_param
+      // - Attribute 4: n_param
       attr_id = H5Acreate(dset_id, "n_param", H5T_NATIVE_INT,
                           attr_dspace_id, H5P_DEFAULT, H5P_DEFAULT);
       status = H5Awrite(attr_id, H5T_NATIVE_INT, &n_param);
       status = H5Aclose(attr_id);
       
-      // - Attribute 3: reindex
+      // - Attribute 5: reindex
       int reindex = 0;
       attr_id = H5Acreate(dset_id, "reindex", H5T_NATIVE_INT,
                           attr_dspace_id, H5P_DEFAULT, H5P_DEFAULT);
       status = H5Awrite(attr_id, H5T_NATIVE_INT, &reindex);
+      status = H5Aclose(attr_id);
+      
+      // - Attribute 6-11: xmin,xmax,ymin,ymax,zmin,zmax
+      double val = WaveSolution::xmin*(Cascadia::l0/1000);
+      attr_id = H5Acreate(dset_id, "xmin", H5T_NATIVE_DOUBLE,
+                          attr_dspace_id, H5P_DEFAULT, H5P_DEFAULT);
+      status = H5Awrite(attr_id, H5T_NATIVE_DOUBLE, &val);
+      status = H5Aclose(attr_id);
+      
+      val = WaveSolution::xmax*(Cascadia::l0/1000);
+      attr_id = H5Acreate(dset_id, "xmax", H5T_NATIVE_DOUBLE,
+                          attr_dspace_id, H5P_DEFAULT, H5P_DEFAULT);
+      status = H5Awrite(attr_id, H5T_NATIVE_DOUBLE, &val);
+      status = H5Aclose(attr_id);
+      
+      val = WaveSolution::ymin*(Cascadia::l0/1000);
+      attr_id = H5Acreate(dset_id, "ymin", H5T_NATIVE_DOUBLE,
+                          attr_dspace_id, H5P_DEFAULT, H5P_DEFAULT);
+      status = H5Awrite(attr_id, H5T_NATIVE_DOUBLE, &val);
+      status = H5Aclose(attr_id);
+      
+      val = WaveSolution::ymax*(Cascadia::l0/1000);
+      attr_id = H5Acreate(dset_id, "ymax", H5T_NATIVE_DOUBLE,
+                          attr_dspace_id, H5P_DEFAULT, H5P_DEFAULT);
+      status = H5Awrite(attr_id, H5T_NATIVE_DOUBLE, &val);
+      status = H5Aclose(attr_id);
+      
+      val = WaveSolution::zmin*(Cascadia::l0/1000);
+      attr_id = H5Acreate(dset_id, "zmin", H5T_NATIVE_DOUBLE,
+                          attr_dspace_id, H5P_DEFAULT, H5P_DEFAULT);
+      status = H5Awrite(attr_id, H5T_NATIVE_DOUBLE, &val);
+      status = H5Aclose(attr_id);
+      
+      val = WaveSolution::zmax*(Cascadia::l0/1000);
+      attr_id = H5Acreate(dset_id, "zmax", H5T_NATIVE_DOUBLE,
+                          attr_dspace_id, H5P_DEFAULT, H5P_DEFAULT);
+      status = H5Awrite(attr_id, H5T_NATIVE_DOUBLE, &val);
+      status = H5Aclose(attr_id);
+      
+      // - Attributes 12-14: nx,ny,nz
+      attr_id = H5Acreate(dset_id, "nx", H5T_NATIVE_INT,
+                          attr_dspace_id, H5P_DEFAULT, H5P_DEFAULT);
+      status = H5Awrite(attr_id, H5T_NATIVE_INT, &WaveSolution::nx);
+      status = H5Aclose(attr_id);
+      
+      attr_id = H5Acreate(dset_id, "ny", H5T_NATIVE_INT,
+                          attr_dspace_id, H5P_DEFAULT, H5P_DEFAULT);
+      status = H5Awrite(attr_id, H5T_NATIVE_INT, &WaveSolution::ny);
+      status = H5Aclose(attr_id);
+      
+      attr_id = H5Acreate(dset_id, "nz", H5T_NATIVE_INT,
+                          attr_dspace_id, H5P_DEFAULT, H5P_DEFAULT);
+      status = H5Awrite(attr_id, H5T_NATIVE_INT, &WaveSolution::nz);
       status = H5Aclose(attr_id);
       
       status = H5Sclose(attr_dspace_id);
@@ -478,6 +660,7 @@ void WaveIO::ParamToFile(const std::string &filename, GridFunction **param)
             }
          }
          status = H5Dwrite(dset_id, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, dset_data);
+         delete[] dset_data;
       }
       else
       {
@@ -558,6 +741,95 @@ GridFunction** WaveIO::ParamFromFile(const std::string &filename)
       // Open existing dataset
       hid_t dset_id;
       dset_id = H5Dopen(file_id, "/vec", H5P_DEFAULT);
+      
+      // Verify parameter file attributes
+      hid_t attr_id;
+      const double eps = 1.0e-10;
+      
+      // - Attribute 1: dt
+      double val;
+      attr_id = H5Aopen(dset_id, "dt", H5P_DEFAULT);
+      status = H5Aread(attr_id, H5T_NATIVE_DOUBLE, &val);
+      status = H5Aclose(attr_id);
+      MFEM_VERIFY(abs(dt-val) < eps, "dt");
+      
+      // - Attribute 2: param_rate
+      int attr_val;
+      attr_id = H5Aopen(dset_id, "param_rate", H5P_DEFAULT);
+      status = H5Aread(attr_id, H5T_NATIVE_INT, &attr_val);
+      status = H5Aclose(attr_id);
+      MFEM_VERIFY(param_rate == attr_val, "param_rate");
+      
+      // - Attribute 3: param_steps
+      attr_id = H5Aopen(dset_id, "param_steps", H5P_DEFAULT);
+      status = H5Aread(attr_id, H5T_NATIVE_INT, &attr_val);
+      status = H5Aclose(attr_id);
+      MFEM_VERIFY(param_steps == attr_val, "param_steps");
+      
+      // - Attribute 4: n_param
+      attr_id = H5Aopen(dset_id, "n_param", H5P_DEFAULT);
+      status = H5Aread(attr_id, H5T_NATIVE_INT, &attr_val);
+      status = H5Aclose(attr_id);
+      MFEM_VERIFY(n_param == attr_val, "n_param");
+      
+      // - Attribute 5: reindex
+      attr_id = H5Aopen(dset_id, "reindex", H5P_DEFAULT);
+      status = H5Aread(attr_id, H5T_NATIVE_INT, &attr_val);
+      status = H5Aclose(attr_id);
+      MFEM_VERIFY(attr_val == 0, "reindex");
+      
+      // - Attribute 6-11: xmin,xmax,ymin,ymax,zmin,zmax
+      attr_id = H5Aopen(dset_id, "xmin", H5P_DEFAULT);
+      status = H5Aread(attr_id, H5T_NATIVE_DOUBLE, &val);
+      status = H5Aclose(attr_id);
+      val /= (Cascadia::l0/1000);
+      MFEM_VERIFY(abs(WaveSolution::xmin-val) < eps, "xmin");
+      
+      attr_id = H5Aopen(dset_id, "xmax", H5P_DEFAULT);
+      status = H5Aread(attr_id, H5T_NATIVE_DOUBLE, &val);
+      status = H5Aclose(attr_id);
+      val /= (Cascadia::l0/1000);
+      MFEM_VERIFY(abs(WaveSolution::xmax-val) < eps, "xmax");
+      
+      attr_id = H5Aopen(dset_id, "ymin", H5P_DEFAULT);
+      status = H5Aread(attr_id, H5T_NATIVE_DOUBLE, &val);
+      status = H5Aclose(attr_id);
+      val /= (Cascadia::l0/1000);
+      MFEM_VERIFY(abs(WaveSolution::ymin-val) < eps, "ymin");
+      
+      attr_id = H5Aopen(dset_id, "ymax", H5P_DEFAULT);
+      status = H5Aread(attr_id, H5T_NATIVE_DOUBLE, &val);
+      status = H5Aclose(attr_id);
+      val /= (Cascadia::l0/1000);
+      MFEM_VERIFY(abs(WaveSolution::ymax-val) < eps, "ymax");
+      
+      attr_id = H5Aopen(dset_id, "zmin", H5P_DEFAULT);
+      status = H5Aread(attr_id, H5T_NATIVE_DOUBLE, &val);
+      status = H5Aclose(attr_id);
+      val /= (Cascadia::l0/1000);
+      MFEM_VERIFY(abs(WaveSolution::zmin-val) < eps, "zmin");
+      
+      attr_id = H5Aopen(dset_id, "zmax", H5P_DEFAULT);
+      status = H5Aread(attr_id, H5T_NATIVE_DOUBLE, &val);
+      status = H5Aclose(attr_id);
+      val /= (Cascadia::l0/1000);
+      MFEM_VERIFY(abs(WaveSolution::zmax-val) < eps, "zmax");
+      
+      // - Attributes 12-14: nx,ny,nz
+      attr_id = H5Aopen(dset_id, "nx", H5P_DEFAULT);
+      status = H5Aread(attr_id, H5T_NATIVE_INT, &attr_val);
+      status = H5Aclose(attr_id);
+      MFEM_VERIFY(WaveSolution::nx == attr_val, "nx");
+      
+      attr_id = H5Aopen(dset_id, "ny", H5P_DEFAULT);
+      status = H5Aread(attr_id, H5T_NATIVE_INT, &attr_val);
+      status = H5Aclose(attr_id);
+      MFEM_VERIFY(WaveSolution::ny == attr_val, "ny");
+      
+      attr_id = H5Aopen(dset_id, "nz", H5P_DEFAULT);
+      status = H5Aread(attr_id, H5T_NATIVE_INT, &attr_val);
+      status = H5Aclose(attr_id);
+      MFEM_VERIFY(WaveSolution::nz == attr_val, "nz");
 
       // Read dataset
       if (memcpy)
@@ -577,6 +849,7 @@ GridFunction** WaveIO::ParamFromFile(const std::string &filename)
                tmp[i] = dset_data[k*n_param+i];
             }
          }
+         delete[] dset_data;
       }
       else
       {
