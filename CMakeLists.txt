@@ -690,7 +690,20 @@ endif()
 # Create a target for all miniapps and, optionally, enable it.
 set(MFEM_ALL_MINIAPPS_TARGET_NAME miniapps)
 add_mfem_target(${MFEM_ALL_MINIAPPS_TARGET_NAME} ${MFEM_ENABLE_MINIAPPS})
-add_subdirectory(miniapps EXCLUDE_FROM_ALL)
+if (MFEM_ENABLE_MINIAPPS)
+  add_subdirectory(miniapps) #install miniapps if enabled
+else()
+  add_subdirectory(miniapps EXCLUDE_FROM_ALL)
+endif()
+
+# Create a target for cascadia app and, optionally, enable it.
+set(MFEM_ALL_CASCADIA_TARGET_NAME cascadia)
+add_mfem_target(${MFEM_ALL_CASCADIA_TARGET_NAME} ${MFEM_ENABLE_CASCADIA})
+if (MFEM_ENABLE_CASCADIA)
+  add_subdirectory(cascadia) #install cascadia apps if enabled
+else()
+  add_subdirectory(cascadia EXCLUDE_FROM_ALL)
+endif()
 
 # Target to build all executables, i.e. everything.
 add_custom_target(exec)
@@ -698,6 +711,7 @@ add_dependencies(exec
   ${MFEM_ALL_BENCHMARKS_TARGET_NAME}
   ${MFEM_ALL_EXAMPLES_TARGET_NAME}
   ${MFEM_ALL_MINIAPPS_TARGET_NAME}
+  ${MFEM_ALL_CASCADIA_TARGET_NAME}
   ${MFEM_ALL_TESTS_TARGET_NAME})
 # Here, we want to "add_dependencies(test exec)". However, dependencies for
 # 'test' (and other built-in targets) can not be added with add_dependencies():

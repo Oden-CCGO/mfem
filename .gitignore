@@ -31,6 +31,7 @@ config/config.mk
 config/sample-runs-build.log
 config/user.cmake
 config/user.mk
+config/user.cmake
 doc/CodeDocumentation.conf
 doc/CodeDocumentation.html
 doc/CodeDocumentation
@@ -46,6 +47,23 @@ doc/warnings.log
 # OS-specific: Mac
 *.dSYM
 .DS_Store
+
+# Cascadia app
+cascadia/cascadia_seq/cascadia_seq
+cascadia/cascadia_seq/mesh.*
+cascadia/cascadia_seq/*.mesh
+cascadia/cascadia_seq/*.gf
+cascadia/cascadia_seq/ParaView
+cascadia/cascadia_seq/fwd
+cascadia/cascadia_seq/adj
+cascadia/cascadia_par/cascadia_par
+cascadia/cascadia_par/mesh.*
+cascadia/cascadia_par/*.mesh
+cascadia/cascadia_par/*.gf
+cascadia/cascadia_par/ParaView
+cascadia/cascadia_par/fwd
+cascadia/cascadia_par/adj
+cascadia/verification
 
 # Example and miniapp binaries and outputs
 
